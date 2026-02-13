@@ -1,38 +1,11 @@
-# from tools.registry import code_interpreter
-import time
+from fastapi import FastAPI
+from llm_sandbox import SupportedLanguage
 
-from llm_sandbox import SandboxSession, SandboxBackend, SupportedLanguage
-from llm_sandbox.pool import create_pool_manager, PoolConfig
+from tools.registry.code_interpreter import run_code_stuff
 
+app = FastAPI()
 
-docker_pool = create_pool_manager(
-    backend=SandboxBackend.DOCKER,
-    config=PoolConfig(
-        max_pool_size=3,
-        min_pool_size=1,
-        enable_prewarming=True,
-    ),
-    lang="python",
-)
-
-
-def run_code_stuff(language: SupportedLanguage, code: str) -> str:
-    print(f" code: {code}")
-    with SandboxSession(language=language, pool=docker_pool) as session:
-        result = session.run(code=code)
-    print(f"{result.exit_code=}, {result.success()=}, {result.stderr=}")
-    return result.stdout
-
-
-def main(c: int):
-    code = f"print('Hello, World! - {c}')"
+@app.post("/run_code/")
+def run_code(code: str):
     output = run_code_stuff(language=SupportedLanguage.PYTHON, code=code)
-    print("Code Output:", output)
-
-
-if __name__ == "__main__":
-    count = 0
-    while count < 2:
-        count += 1
-        main(count)
-    docker_pool.close()
+    return {"output": output}
