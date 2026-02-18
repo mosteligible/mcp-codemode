@@ -13,3 +13,12 @@ def average(numbers: list[int | float]) -> float:
     total = sum(numbers)
     count = len(numbers)
     return total / count
+
+def add(a: int | float, b: int | float) -> int | float:
+    return a + b
+
+def subtract(a: int | float, b: int | float) -> int | float:
+    return a - b
+
+def multiply(a: int | float, b: int | float) -> int | float:
+    return a * b
