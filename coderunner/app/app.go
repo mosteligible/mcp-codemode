@@ -4,17 +4,19 @@ import (
 	"net/http"
 
 	"github.com/mosteligible/mcp-codemode/coderunner/middlewares"
+	"github.com/mosteligible/mcp-codemode/coderunner/states"
 )
 
 type App struct {
 	wrapper             http.Handler
 	port                string
-	availableContainers []string
+	availableContainers states.ContainerState
 }
 
 func NewApp(port string) *App {
 	app := &App{
-		port: port,
+		port:                port,
+		availableContainers: *states.NewContainerState(),
 	}
 	app.init()
 	return app
