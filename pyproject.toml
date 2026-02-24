@@ -1,0 +1,19 @@
+[project]
+name = "mcp-codemode"
+version = "0.1.0"
+description = "MCP-enhanced code execution workspace"
+requires-python = ">=3.12"
+dependencies = [
+	"mcp-codemode-client",
+	"mcp-codemode-server",
+]
+
+[tool.uv.workspace]
+members = ["client", "pyrunner"]
+
+[tool.uv.sources]
+mcp-codemode-client = { workspace = true }
+mcp-codemode-server = { workspace = true }
+
+[dependency-groups]
+dev = []

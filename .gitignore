@@ -12,3 +12,5 @@ ignore/
 
 .env
 skills/
+.vscode/
+*.prompt.md
