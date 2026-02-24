@@ -1,0 +1,21 @@
+[project]
+name = "mcp-codemode-server"
+version = "0.1.0"
+description = "MCP server with sandboxed code execution via Docker containers"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "docker>=7.1.0",
+    "mcp>=1.25.0",
+    "uvicorn>=0.40.0",
+]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["config", "main"]
+
+[tool.setuptools.packages.find]
+include = ["core*", "tasks*", "tools*"]

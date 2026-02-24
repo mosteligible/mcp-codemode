@@ -9,3 +9,8 @@ wheels/
 # Virtual environments
 .venv
 ignore/
+
+.env
+skills/
+.vscode/
+*.prompt.md

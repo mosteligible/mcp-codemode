@@ -1,0 +1,20 @@
+[project]
+name = "mcp-codemode-client"
+version = "0.1.0"
+description = "FastAPI client for mcp-codemode — LLM-driven tool-use via MCP"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic-ai-slim[openai,mcp]>=0.2.0",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.34.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+]
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["agent", "config", "main"]
