@@ -12,6 +12,8 @@ from typing import Any
 
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+from pydantic import TypeAdapter
+from pydantic_ai.messages import ModelMessage
 
 from agent import AgentResponse, mcp_server, run_agent
 from config import settings
@@ -45,8 +47,7 @@ class ChatRequest(BaseModel):
         default=None,
         description=(
             "Optional prior messages (PydanticAI ModelMessage format) "
-            "for multi-turn context. Pass back the 'new_messages' field "
-            "from a previous ChatResponse."
+            "for multi-turn context."
         ),
     )
 
@@ -66,13 +67,6 @@ class ChatResponse(BaseModel):
         description="Log of tool calls made during this request",
     )
     rounds: int = Field(0, description="Number of LLM requests made")
-    new_messages: list[dict[str, Any]] = Field(
-        default_factory=list,
-        description=(
-            "PydanticAI messages from this run — pass back as "
-            "conversation_history to continue the conversation."
-        ),
-    )
 
 
 # ── Endpoints ────────────────────────────────────────────────────────
@@ -90,8 +84,6 @@ async def chat(request: ChatRequest) -> ChatResponse:
     # Deserialize conversation history if provided
     message_history = None
     if request.conversation_history:
-        from pydantic import TypeAdapter
-        from pydantic_ai.messages import ModelMessage
 
         ta = TypeAdapter(list[ModelMessage])
         message_history = ta.validate_python(request.conversation_history)
@@ -105,7 +97,6 @@ async def chat(request: ChatRequest) -> ChatResponse:
         response=result.text,
         tool_calls=[ToolCallInfo(**tc) for tc in result.tool_calls],
         rounds=result.rounds,
-        new_messages=[m.model_dump(mode="json") for m in result.new_messages],
     )
 
 
