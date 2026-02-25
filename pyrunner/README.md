@@ -51,7 +51,7 @@ All settings are read from environment variables:
 
 ### `execute_code`
 
-Execute code in an isolated Docker sandbox with no network access.
+Execute code in an isolated Docker sandbox with access.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
