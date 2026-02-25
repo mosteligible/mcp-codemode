@@ -5,7 +5,7 @@ directory contents inside isolated Docker containers.
 
 The MCP server runs in stateless-HTTP mode (each request gets a fresh
 transport, no session state).  The sandbox container pool is managed
-by the *Starlette application* lifespan so it persists across requests.
+by the FastMCP app lifespan so it persists across requests.
 """
 
 from __future__ import annotations
@@ -14,10 +14,8 @@ import contextlib
 import logging
 
 import uvicorn
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from starlette.middleware import Middleware
-from starlette.applications import Starlette
-from starlette.routing import Mount
 
 from config import settings
 from core.sandbox import pool  # module-level singleton
@@ -29,6 +27,26 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# ── FastMCP app lifecycle ────────────────────────────────────────────
+# The pool lifecycle is tied to FastMCP app lifespan so it
+# survives across stateless MCP requests.
+
+
+@contextlib.asynccontextmanager
+async def app_lifespan(_server: FastMCP):
+    """Start the sandbox pool on startup and tear it down on shutdown."""
+    logger.info(
+        "Starting sandbox pool — image=%s pool_size=%d",
+        settings.sandbox_image,
+        settings.pool_size,
+    )
+    await pool.start()
+    logger.info("MCP server ready at http://%s:%d/mcp", settings.mcp_host, settings.mcp_port)
+    yield
+    logger.info("Shutting down sandbox pool")
+    await pool.shutdown()
+
 
 # ── MCP server ───────────────────────────────────────────────────────
 
@@ -43,40 +61,19 @@ mcp = FastMCP(
         "sandbox_list_files) to interact with the /workspace directory inside "
         "the sandbox."
     ),
-    stateless_http=True,
-    json_response=True,
-    log_level="INFO",
+    lifespan=app_lifespan,
 )
 
 # Register all tools onto the mcp instance
 register_tools(mcp)
 
-# ── Starlette wrapper ────────────────────────────────────────────────
-# The pool lifecycle is tied to the *Starlette* app lifespan so it
-# survives across stateless MCP requests.
 
-
-@contextlib.asynccontextmanager
-async def app_lifespan(_app: Starlette):
-    """Start the sandbox pool on startup and tear it down on shutdown."""
-    logger.info(
-        "Starting sandbox pool — image=%s pool_size=%d",
-        settings.sandbox_image,
-        settings.pool_size,
-    )
-    await pool.start()
-    async with mcp.session_manager.run():
-        logger.info("MCP server ready at http://%s:%d/mcp", settings.mcp_host, settings.mcp_port)
-        yield
-    logger.info("Shutting down sandbox pool")
-    await pool.shutdown()
-
-
-app = Starlette(
-    routes=[Mount("/", app=mcp.streamable_http_app())],
+app = mcp.http_app(
+    transport="streamable-http",
+    stateless_http=True,
+    json_response=True,
     middleware=[Middleware(FastMCPContextMiddleware)],
-    lifespan=app_lifespan,
 )
 
 if __name__ == "__main__":
-    uvicorn.run(app, host=settings.mcp_host, port=settings.mcp_port)
+    uvicorn.run("main:app", host=settings.mcp_host, port=settings.mcp_port)

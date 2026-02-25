@@ -3,20 +3,12 @@
 from __future__ import annotations
 
 import os
-from typing import Any, TypeAlias
+from typing import Any
 
 import httpx
+from fastmcp.dependencies import CurrentContext
 
 from middleware import get_request_context
-
-CurrentContext: TypeAlias = Any
-
-try:  # FastMCP standalone package
-    from fastmcp.dependencies import CurrentContext as _CurrentContext  # type: ignore[import-not-found]
-
-    CurrentContext = _CurrentContext
-except ImportError:  # pragma: no cover - compatibility fallback
-    pass
 
 
 DEFAULT_TIMEOUT = 30.0
