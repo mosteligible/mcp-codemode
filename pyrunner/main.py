@@ -15,11 +15,13 @@ import logging
 
 import uvicorn
 from mcp.server.fastmcp import FastMCP
+from starlette.middleware import Middleware
 from starlette.applications import Starlette
 from starlette.routing import Mount
 
 from config import settings
 from core.sandbox import pool  # module-level singleton
+from middleware import FastMCPContextMiddleware
 from tools import register_tools
 
 logging.basicConfig(
@@ -72,6 +74,7 @@ async def app_lifespan(_app: Starlette):
 
 app = Starlette(
     routes=[Mount("/", app=mcp.streamable_http_app())],
+    middleware=[Middleware(FastMCPContextMiddleware)],
     lifespan=app_lifespan,
 )
 
