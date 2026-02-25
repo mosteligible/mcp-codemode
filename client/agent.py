@@ -32,19 +32,28 @@ logger = logging.getLogger(__name__)
 if settings.openai_api_key and not os.environ.get("OPENAI_API_KEY"):
     os.environ["OPENAI_API_KEY"] = settings.openai_api_key
 
-SYSTEM_PROMPT = """\
-You are a helpful coding assistant with access to a sandboxed code execution \
-environment. You can run Python, Bash, and Node.js code, and read/write files \
+SYSTEM_PROMPT = """
+You are a helpful coding assistant with access to a sandboxed code execution
+environment. You can run Python, Bash, and Node.js code, and read/write files
 inside an isolated /workspace directory.
 
-When the user asks you to write, run, or debug code:
+The tool registry under /workspace/pyrunner/tools/registry is intended to host
+operation-specific tools that an LLM can invoke (for example, dedicated
+modules for Microsoft Graph and GitHub operations).
+
+When tasks involve external APIs (especially Microsoft Graph APIs and GitHub
+APIs), implement and run calls in the sandbox using either:
+- Bash with curl or
+- Python with the requests library
+
+Understand that whenever you need to make external api calls or run code to complete a task, you should use the execute_code tool to run code in the sandbox.
+You have following options for executing code in the sandbox:
 1. Use the execute_code tool to run code.
 2. Use sandbox_write_file / sandbox_read_file / sandbox_list_files for file ops.
 3. Examine tool results carefully and iterate if there are errors.
 4. Always share the final output or answer with the user.
 
-Keep explanations concise. Prefer showing results over describing what you \
-would do.\
+Keep explanations concise. Prefer showing results over describing what you would do.
 """
 
 # ── MCP server connection ────────────────────────────────────────────
@@ -101,7 +110,13 @@ def extract_tool_calls(messages: list[ModelMessage]) -> list[dict[str, Any]]:
             for part in msg.parts:
                 if isinstance(part, ToolReturnPart) and part.tool_call_id in pending:
                     idx = pending.pop(part.tool_call_id)
-                    tool_calls[idx]["output"] = str(part.content)
+                    content = str(part.content)
+                    tool_calls[idx]["output"] = content
+                    # MCP errors surface as text starting with known prefixes
+                    tool_calls[idx]["is_error"] = getattr(part, "is_error", False) or any(
+                        content.lstrip().startswith(prefix)
+                        for prefix in ("Error", "error", "Traceback", "Exception")
+                    )
 
     return tool_calls
 
@@ -123,19 +138,40 @@ async def run_agent(
     """
     logger.info("Running agent for: %.120s", user_message)
 
+    history: list[ModelMessage] = list(message_history or [])
+
     result = await agent.run(
         user_message,
         model=f"openai:{settings.openai_model}",
-        message_history=message_history,
+        message_history=history,
         usage_limits=UsageLimits(request_limit=settings.max_tool_rounds),
     )
 
     new_messages = result.new_messages()
     tool_calls = extract_tool_calls(new_messages)
+    total_requests = result.usage().requests
+
+    # If any tool call returned an error, retry once with accumulated history so
+    # the LLM can see what went wrong and attempt a corrected approach.
+    if any(tc["is_error"] for tc in tool_calls):
+        logger.warning("Tool errors detected – retrying with error context.")
+        history = history + new_messages
+        retry_result = await agent.run(
+            "One or more tool calls above returned errors. "
+            "Review the errors carefully and try a corrected approach to complete the original task.",
+            model=f"openai:{settings.openai_model}",
+            message_history=history,
+            usage_limits=UsageLimits(request_limit=settings.max_tool_rounds),
+        )
+        retry_messages = retry_result.new_messages()
+        tool_calls += extract_tool_calls(retry_messages)
+        total_requests += retry_result.usage().requests
+        new_messages = new_messages + retry_messages
+        result = retry_result
 
     return AgentResponse(
         text=result.output,
         tool_calls=tool_calls,
-        rounds=result.usage().requests,
+        rounds=total_requests,
         new_messages=new_messages,
     )

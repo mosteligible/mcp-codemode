@@ -44,9 +44,15 @@ class SandboxPool:
         loop = asyncio.get_event_loop()
         self._client = docker.from_env()
 
-        # Pull image (blocking call, run in executor)
-        logger.info("Pulling sandbox image: %s", settings.sandbox_image)
-        await loop.run_in_executor(None, self._client.images.pull, settings.sandbox_image)
+        # Pull image only if not already present locally (blocking calls, run in executor)
+        try:
+            print(f" Checking for local sandbox image: {settings.sandbox_image}")
+            res = self._client.images.get(settings.sandbox_image)
+            print(f" Found local sandbox image: {res.tags}")
+            logger.info("Using local sandbox image: %s", settings.sandbox_image)
+        except docker.errors.ImageNotFound:
+            logger.info("Pulling sandbox image: %s", settings.sandbox_image)
+            await loop.run_in_executor(None, self._client.images.pull, settings.sandbox_image)
 
         # Calculate CPU quota from the cpu_limit (fraction of a CPU)
         cpu_period = 100_000  # microseconds (default)
@@ -63,7 +69,7 @@ class SandboxPool:
                     mem_limit=settings.container_memory_limit,
                     cpu_period=cpu_period,
                     cpu_quota=cpu_quota,
-                    network_mode="none",
+                    network_mode="bridge",
                     working_dir="/workspace",
                     stdin_open=True,
                     labels={"mcp-codemode": "sandbox"},

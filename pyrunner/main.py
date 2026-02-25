@@ -34,8 +34,9 @@ mcp = FastMCP(
     "mcp-codemode",
     instructions=(
         "This MCP server provides sandboxed code execution. "
-        "Use the execute_code tool to run Python, Bash, or Node.js code "
-        "in an isolated Docker container with no network access. "
+        "Use the execute_code tool to run Python, Bash with curl, or Node.js code "
+        "in an isolated Docker container with network access to public sites and apis. It has no access" \
+        "to the host system and all file operations are confined to the /workspace directory. "
         "Use the sandbox file tools (sandbox_read_file, sandbox_write_file, "
         "sandbox_list_files) to interact with the /workspace directory inside "
         "the sandbox."
@@ -76,4 +77,3 @@ app = Starlette(
 
 if __name__ == "__main__":
     uvicorn.run(app, host=settings.mcp_host, port=settings.mcp_port)
-

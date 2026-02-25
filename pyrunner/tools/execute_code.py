@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from core.sandbox import pool
+from log import app_logger
 
 
 def register(mcp) -> None:  # noqa: ANN001
@@ -13,7 +14,7 @@ def register(mcp) -> None:  # noqa: ANN001
         code: str,
         language: str = "python",
     ) -> str:
-        """Execute code in an isolated Docker sandbox with no network access.
+        """Execute code in an isolated Docker sandbox with network access.
 
         The sandbox has a /workspace directory for file operations.
         Supported languages: python, bash, sh, node, javascript.
@@ -25,11 +26,36 @@ def register(mcp) -> None:  # noqa: ANN001
         Returns:
             Formatted string with stdout, stderr, and exit code.
         """
+        app_logger.info(
+            "[execute_code] Received request | language=%s | code_length=%d | code=%r",
+            language,
+            len(code),
+            code,
+        )
+
         container = await pool.acquire()
+        app_logger.info(
+            "[execute_code] Acquired container | container_id=%s",
+            container.short_id,
+        )
         try:
+            app_logger.info(
+                "[execute_code] Starting sandbox execution | container_id=%s",
+                container.short_id,
+            )
             result = await pool.exec_code(container, code, language)
+            app_logger.info(
+                "[execute_code] Execution finished | container_id=%s | exit_code=%s | truncated=%s",
+                container.short_id,
+                result.exit_code,
+                result.truncated,
+            )
         finally:
             await pool.release(container)
+            app_logger.info(
+                "[execute_code] Released container | container_id=%s",
+                container.short_id,
+            )
 
         parts: list[str] = []
         if result.stdout:
@@ -39,4 +65,11 @@ def register(mcp) -> None:  # noqa: ANN001
         parts.append(f"[exit_code] {result.exit_code}")
         if result.truncated:
             parts.append("[note] Output was truncated due to size limits.")
-        return "\n".join(parts)
+        response = "\n".join(parts)
+        app_logger.info(
+            "[execute_code] Returning response | stdout=%r | stderr=%r | response=%r",
+            result.stdout,
+            result.stderr,
+            response,
+        )
+        return response
