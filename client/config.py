@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-5.2"
     max_tool_rounds: int = 10  # safety limit on agentic loops
 
+    # Proxy tokens (injected into forwarded requests)
+    microsoft_graph_token: str = ""
+    github_token: str = ""
+
     # FastAPI
     host: str = "0.0.0.0"
     port: int = 8080

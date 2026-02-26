@@ -12,10 +12,13 @@ from __future__ import annotations
 
 import contextlib
 import logging
+from contextlib import AsyncExitStack
 
 import uvicorn
 from fastmcp import FastMCP
+from starlette.applications import Starlette
 from starlette.middleware import Middleware
+from starlette.routing import Mount
 
 from config import settings
 from core.sandbox import pool  # module-level singleton
@@ -34,16 +37,24 @@ logger = logging.getLogger(__name__)
 
 
 @contextlib.asynccontextmanager
-async def app_lifespan(_server: FastMCP):
-    """Start the sandbox pool on startup and tear it down on shutdown."""
+async def app_lifespan(_app: Starlette):
+    """Start shared resources and enter mounted MCP app lifespan."""
     logger.info(
         "Starting sandbox pool — image=%s pool_size=%d",
         settings.sandbox_image,
         settings.pool_size,
     )
     await pool.start()
-    logger.info("MCP server ready at http://%s:%d/mcp", settings.mcp_host, settings.mcp_port)
-    yield
+    async with AsyncExitStack() as stack:
+        await stack.enter_async_context(mcp_app.router.lifespan_context(mcp_app))
+        await stack.enter_async_context(mcp_no_execute_app.router.lifespan_context(mcp_no_execute_app))
+        logger.info("MCP server ready at http://%s:%d/mcp", settings.mcp_host, settings.mcp_port)
+        logger.info(
+            "MCP server ready at http://%s:%d/mcp-no-code-execute",
+            settings.mcp_host,
+            settings.mcp_port,
+        )
+        yield
     logger.info("Shutting down sandbox pool")
     await pool.shutdown()
 
@@ -61,18 +72,42 @@ mcp = FastMCP(
         "sandbox_list_files) to interact with the /workspace directory inside "
         "the sandbox."
     ),
-    lifespan=app_lifespan,
 )
 
 # Register all tools onto the mcp instance
 register_tools(mcp)
 
+mcp_no_execute = FastMCP(
+    "mcp-codemode-no-execute",
+    instructions=(
+        "This MCP server does not expose code execution tools. "
+        "Use endpoint /mcp for code execution and sandbox file operations."
+    ),
+)
 
-app = mcp.http_app(
+
+mcp_app = mcp.http_app(
+    path="/",
     transport="streamable-http",
     stateless_http=True,
     json_response=True,
     middleware=[Middleware(FastMCPContextMiddleware)],
+)
+
+mcp_no_execute_app = mcp_no_execute.http_app(
+    path="/",
+    transport="streamable-http",
+    stateless_http=True,
+    json_response=True,
+    middleware=[Middleware(FastMCPContextMiddleware)],
+)
+
+app = Starlette(
+    routes=[
+        Mount("/mcp", app=mcp_app),
+        Mount("/mcp-no-code-execute", app=mcp_no_execute_app),
+    ],
+    lifespan=app_lifespan,
 )
 
 if __name__ == "__main__":

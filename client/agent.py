@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 if settings.openai_api_key and not os.environ.get("OPENAI_API_KEY"):
     os.environ["OPENAI_API_KEY"] = settings.openai_api_key
 
-SYSTEM_PROMPT = """
+SYSTEM_PROMPT = f"""
 You are a helpful coding assistant with access to a sandboxed code execution
 environment. You can run Python, Bash, and Node.js code, and read/write files
 inside an isolated /workspace directory.
@@ -42,11 +42,25 @@ operation-specific tools that an LLM can invoke (for example, dedicated
 modules for Microsoft Graph and GitHub operations).
 
 When tasks involve external APIs (especially Microsoft Graph APIs and GitHub
-APIs), implement and run calls in the sandbox using either:
-- Bash with curl or
-- Python with the requests library
+APIs), use the API proxy available from inside the sandbox. The proxy injects
+authentication tokens automatically so you do NOT need to supply any tokens or
+credentials.
 
-Understand that whenever you need to make external api calls or run code to complete a task, you should use the execute_code tool to run code in the sandbox.
+Proxy base URLs (usable from the sandbox with curl or Python requests):
+  - Microsoft Graph: http://host.docker.internal:{settings.port}/graph/
+    Example: curl http://host.docker.internal:{settings.port}/graph/me
+  - GitHub:          http://host.docker.internal:{settings.port}/github/
+    Example: curl http://host.docker.internal:{settings.port}/github/users/octocat
+
+The proxy auto-prepends the Graph API version (v1.0), so use paths like
+/graph/me rather than /graph/v1.0/me.
+
+For POST requests, pass the JSON body as-is:
+  curl -X POST http://host.docker.internal:{settings.port}/graph/me/sendMail \\
+       -H "Content-Type: application/json" -d '{{"message": ...}}'
+
+Understand that whenever you need to make external api calls or run code to
+complete a task, you should use the execute_code tool to run code in the sandbox.
 You have following options for executing code in the sandbox:
 1. Use the execute_code tool to run code.
 2. Use sandbox_write_file / sandbox_read_file / sandbox_list_files for file ops.

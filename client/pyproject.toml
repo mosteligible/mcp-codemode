@@ -10,6 +10,7 @@ dependencies = [
     "uvicorn>=0.34.0",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
+    "httpx>=0.27.0",
 ]
 
 [build-system]
@@ -17,4 +18,4 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-py-modules = ["agent", "config", "main"]
+py-modules = ["agent", "config", "main", "proxy"]

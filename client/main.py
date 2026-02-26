@@ -17,6 +17,7 @@ from pydantic_ai.messages import ModelMessage
 
 from agent import AgentResponse, mcp_server, run_agent
 from config import settings
+from proxy import github_router, graph_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,6 +38,10 @@ app = FastAPI(
     description="LLM-powered chat that uses MCP tools for sandboxed code execution",
     lifespan=lifespan,
 )
+
+# ── Proxy routers (used by sandbox to reach third-party APIs) ────────
+app.include_router(graph_router, prefix="/graph")
+app.include_router(github_router, prefix="/github")
 
 
 # ── Request / Response models ────────────────────────────────────────
