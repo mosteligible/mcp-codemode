@@ -24,6 +24,7 @@ from config import settings
 from core.sandbox import pool  # module-level singleton
 from middleware import FastMCPContextMiddleware
 from tools import register_tools
+from tools.registry import register_registry_tools
 
 logging.basicConfig(
     level=logging.INFO,
@@ -84,6 +85,8 @@ mcp_no_execute = FastMCP(
         "Use endpoint /mcp for code execution and sandbox file operations."
     ),
 )
+
+register_registry_tools(mcp_no_execute)
 
 
 mcp_app = mcp.http_app(

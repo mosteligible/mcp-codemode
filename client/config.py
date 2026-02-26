@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     # MCP server
     mcp_server_url: str = "http://localhost:8000/mcp"
+    mcp_server_no_code_execute_url: str = "http://localhost:8000/mcp-no-code-execute"
 
     # LLM
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")

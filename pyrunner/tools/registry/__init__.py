@@ -5,6 +5,13 @@ This package exports async tool functions for:
 - GitHub public API (no token required)
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
+
 from .github_tools import (
     list_issues_opened_by_user,
     list_pull_requests_opened_by_user,
@@ -49,4 +56,28 @@ __all__ = [
     "list_user_repositories",
     "list_pull_requests_opened_by_user",
     "list_issues_opened_by_user",
+    "register_registry_tools",
 ]
+
+
+def register_registry_tools(mcp: FastMCP) -> None:
+    """Register all Graph/GitHub registry functions as tools on a FastMCP server."""
+    mcp.tool()(get_user_information)
+    mcp.tool()(get_user_calendar_availability)
+    mcp.tool()(list_user_mail_folders)
+    mcp.tool()(list_mailbox_messages)
+    mcp.tool()(list_message_attachments)
+    mcp.tool()(list_user_meetings)
+    mcp.tool()(search_sharepoint)
+    mcp.tool()(list_sharepoint_sites)
+    mcp.tool()(list_sharepoint_site_items)
+    mcp.tool()(list_user_drives)
+    mcp.tool()(list_sharepoint_drive_items)
+    mcp.tool()(list_all_items_in_sharepoint_drive_folders)
+    mcp.tool()(list_user_chats)
+    mcp.tool()(list_chat_messages)
+    mcp.tool()(list_joined_teams)
+    mcp.tool()(list_team_channels)
+    mcp.tool()(list_user_repositories)
+    mcp.tool()(list_pull_requests_opened_by_user)
+    mcp.tool()(list_issues_opened_by_user)

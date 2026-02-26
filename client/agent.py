@@ -70,10 +70,35 @@ You have following options for executing code in the sandbox:
 Keep explanations concise. Prefer showing results over describing what you would do.
 """
 
+CONCRETE_TOOLS_SYSTEM_PROMPT = f"""
+You are a task-focused assistant using the no-code-execute MCP server only.
+You do NOT have code execution or sandbox file tools.
+
+Tool schemas (name, description, parameters, required fields) come from the MCP
+server at runtime and are the source of truth.
+
+Operating rules:
+- Use tools directly when facts are needed; do not guess.
+- Ask for missing required arguments before making a tool call.
+- Do not invent identifiers (message_id, site_id, list_id, drive_id, chat_id, team_id).
+- For Microsoft Graph tools, auth is provided via request context middleware; do not
+  ask the user for tokens unless a tool result indicates auth failure.
+- Prefer minimal calls first, then expand only as needed.
+- When returning results, summarize clearly and include key IDs for next steps.
+
+Workflow hints:
+- For attachments, get message IDs first from mailbox messages.
+- For SharePoint items, discover site/list/drive IDs before listing contents.
+- For broad requests, start with high-level listing tools, then drill down.
+
+Keep responses concise, factual, and action-oriented.
+"""
+
 # ── MCP server connection ────────────────────────────────────────────
 # Managed via ``async with mcp_server`` in the FastAPI lifespan so the
 # connection stays open for the app's entire lifetime.
 mcp_server = MCPServerStreamableHTTP(settings.mcp_server_url)
+mcp_server_no_code_execute = MCPServerStreamableHTTP(settings.mcp_server_no_code_execute_url)
 
 # ── PydanticAI Agent ─────────────────────────────────────────────────
 # Model is NOT set at init time to avoid requiring OPENAI_API_KEY at
@@ -81,6 +106,10 @@ mcp_server = MCPServerStreamableHTTP(settings.mcp_server_url)
 agent = Agent(
     instructions=SYSTEM_PROMPT,
     toolsets=[mcp_server],
+)
+concrete_tool_agent = Agent(
+    instructions=CONCRETE_TOOLS_SYSTEM_PROMPT,
+    toolsets=[mcp_server_no_code_execute],
 )
 
 
