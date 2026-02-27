@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp import Context as CurrentContext
 import httpx
 
-from .common import CurrentContext, DEFAULT_TIMEOUT, request_json
+from .common import DEFAULT_TIMEOUT, request_json
 
 GITHUB_BASE_URL = "https://api.github.com"
 

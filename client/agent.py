@@ -25,6 +25,7 @@ from pydantic_ai.messages import (
 from pydantic_ai.usage import UsageLimits
 
 from config import settings
+from log import app_logger
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +120,10 @@ class AgentResponse:
     """Structured response from the agent."""
 
     text: str
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    requests: int = 0
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     rounds: int = 0
     new_messages: list[ModelMessage] = field(default_factory=list)
@@ -166,14 +171,16 @@ def extract_tool_calls(messages: list[ModelMessage]) -> list[dict[str, Any]]:
 
 async def run_agent(
     user_message: str,
-    *,
     message_history: list[ModelMessage] | None = None,
+    use_code_exec_agent: bool = False,
 ) -> AgentResponse:
     """Run the PydanticAI agent and return the structured result.
 
     Args:
         user_message: The latest user message.
         message_history: Optional prior PydanticAI messages for multi-turn context.
+        use_code_exec_agent: Whether to use the code-execution agent with broader tool access
+            or the no-code agent with only non-code tools.
 
     Returns:
         AgentResponse with the final text, tool call log, round count,
@@ -183,16 +190,31 @@ async def run_agent(
 
     history: list[ModelMessage] = list(message_history or [])
 
-    result = await agent.run(
-        user_message,
-        model=f"openai:{settings.openai_model}",
-        message_history=history,
-        usage_limits=UsageLimits(request_limit=settings.max_tool_rounds),
-    )
+    if use_code_exec_agent:
+        app_logger.info("Using code-execution agent with broader tool access.")
+        result = await agent.run(
+            user_message,
+            model=f"openai:{settings.openai_model}",
+            message_history=history,
+            usage_limits=UsageLimits(request_limit=settings.max_tool_rounds),
+        )
+    else:
+        app_logger.info("Using no-code agent with limited tool access.")
+        result = await concrete_tool_agent.run(
+            user_message,
+            model=f"openai:{settings.openai_model}",
+            message_history=history,
+            usage_limits=UsageLimits(request_limit=settings.max_tool_rounds),
+        )
 
+    usage = result.usage()
+    input_tokens = usage.input_tokens
+    output_tokens = usage.output_tokens
+    total_tokens = usage.total_tokens
+    usage.requests
     new_messages = result.new_messages()
     tool_calls = extract_tool_calls(new_messages)
-    total_requests = result.usage().requests
+    total_requests = usage.requests
 
     # If any tool call returned an error, retry once with accumulated history so
     # the LLM can see what went wrong and attempt a corrected approach.
@@ -206,14 +228,22 @@ async def run_agent(
             message_history=history,
             usage_limits=UsageLimits(request_limit=settings.max_tool_rounds),
         )
+        usage = retry_result.usage()
         retry_messages = retry_result.new_messages()
         tool_calls += extract_tool_calls(retry_messages)
-        total_requests += retry_result.usage().requests
+        total_requests += usage.requests
         new_messages = new_messages + retry_messages
         result = retry_result
+        input_tokens += usage.input_tokens
+        output_tokens += usage.output_tokens
+        total_tokens += usage.total_tokens
 
     return AgentResponse(
         text=result.output,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
+        requests=total_requests,
         tool_calls=tool_calls,
         rounds=total_requests,
         new_messages=new_messages,

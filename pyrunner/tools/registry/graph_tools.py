@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastmcp import Context as CurrentContext
 import httpx
 
-from .common import CurrentContext, DEFAULT_TIMEOUT, collect_paginated_values, request_json, resolve_graph_token
+from .common import DEFAULT_TIMEOUT, collect_paginated_values, request_json, resolve_graph_token
 
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
 

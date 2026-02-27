@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "MCP-enhanced code execution workspace"
 requires-python = ">=3.12"
 dependencies = [
+	"logfire[fastapi,httpx]>=4.25.0",
 	"mcp-codemode-client",
 	"mcp-codemode-server",
 ]

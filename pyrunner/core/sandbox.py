@@ -73,6 +73,7 @@ class SandboxPool:
                     working_dir="/workspace",
                     stdin_open=True,
                     labels={"mcp-codemode": "sandbox"},
+                    extra_hosts={"host.docker.internal": "host-gateway"},
                 ),
             )
             # Ensure /workspace exists

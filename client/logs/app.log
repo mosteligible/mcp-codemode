@@ -1,0 +1,29 @@
+INFO: 2026-02-26 13:13:30,263: /home/mosteligible/development/mcp-codemode/client/log.py: 37: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 13:16:54,473: /home/mosteligible/development/mcp-codemode/client/log.py: 37: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 13:19:51,970: /home/mosteligible/development/mcp-codemode/client/log.py: 37: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 13:20:39,928: /home/mosteligible/development/mcp-codemode/client/log.py: 37: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 13:41:01,274: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 13:41:56,292: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 13:42:23,259: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 13:43:27,599: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 13:43:41,848: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 14:29:42,357: /home/mosteligible/development/mcp-codemode/client/agent.py: 198: APP-LOGS | Using no-code agent with limited tool access.
+INFO: 2026-02-26 14:31:28,495: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 14:31:33,765: /home/mosteligible/development/mcp-codemode/client/agent.py: 198: APP-LOGS | Using no-code agent with limited tool access.
+INFO: 2026-02-26 14:37:08,777: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 14:49:59,923: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 14:50:08,736: /home/mosteligible/development/mcp-codemode/client/agent.py: 201: APP-LOGS | Using no-code agent with limited tool access.
+INFO: 2026-02-26 15:48:00,995: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 15:48:23,953: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 15:48:29,736: /home/mosteligible/development/mcp-codemode/client/agent.py: 201: APP-LOGS | Using no-code agent with limited tool access.
+INFO: 2026-02-26 15:48:58,821: /home/mosteligible/development/mcp-codemode/client/agent.py: 201: APP-LOGS | Using no-code agent with limited tool access.
+INFO: 2026-02-26 15:49:51,080: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 15:50:05,504: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 15:50:08,721: /home/mosteligible/development/mcp-codemode/client/agent.py: 201: APP-LOGS | Using no-code agent with limited tool access.
+INFO: 2026-02-26 15:50:59,953: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 15:51:22,429: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 15:51:29,145: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 15:51:43,431: /home/mosteligible/development/mcp-codemode/client/agent.py: 202: APP-LOGS | Using no-code agent with limited tool access.
+INFO: 2026-02-26 15:52:07,632: /home/mosteligible/development/mcp-codemode/client/agent.py: 194: APP-LOGS | Using code-execution agent with broader tool access.
+INFO: 2026-02-26 16:01:08,458: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
+INFO: 2026-02-26 16:07:40,945: /home/mosteligible/development/mcp-codemode/client/log.py: 42: APP-LOGS | Logger initialized for APP-LOGS
