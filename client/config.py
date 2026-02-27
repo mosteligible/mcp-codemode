@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8080
 
+    redis_username: str = os.getenv("REDIS_USERNAME", "")
+    redis_password: str = os.getenv("REDIS_PASSWORD", "")
+    redis_host: str = os.getenv("REDIS_HOST", "localhost")
+    redis_port: int = int(os.getenv("REDIS_PORT", 6379))
+    redis_db: int = int(os.getenv("REDIS_DB", 0))
+
     model_config = {"env_prefix": "CLIENT_", "env_file": ".env", "env_file_encoding": "utf-8"}
 
 

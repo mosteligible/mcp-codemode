@@ -14,6 +14,13 @@ cd pyrunner
 uv run uvicorn main:app
 ```
 
+### 2) Start `redis`, can be a docker container or a local instance
+
+```bash
+docker pull redis
+docker run -p 6379:6379 --name redis -d redis
+```
+
 ### 2) Start `client` (FastAPI + agent)
 
 ```bash

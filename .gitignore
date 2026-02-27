@@ -14,3 +14,4 @@ ignore/
 skills/
 .vscode/
 *.prompt.md
+logs/

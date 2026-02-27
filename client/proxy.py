@@ -16,6 +16,7 @@ import logging
 
 import httpx
 from fastapi import APIRouter, Request, Response
+from redis.asyncio import Redis
 
 from config import settings
 
@@ -24,6 +25,14 @@ logger = logging.getLogger(__name__)
 GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0"
 GITHUB_BASE_URL = "https://api.github.com"
 DEFAULT_TIMEOUT = 30.0
+
+redis_conn = Redis(
+    host=settings.redis_host,
+    port=settings.redis_port,
+    db=settings.redis_db,
+    username=settings.redis_username,
+    password=settings.redis_password,
+)
 
 # ── Routers ──────────────────────────────────────────────────────────
 
@@ -37,7 +46,7 @@ async def _proxy_request(
     request: Request,
     base_url: str,
     path: str,
-    auth_header: str | None,
+    headers: dict[str, str] | None,
 ) -> Response:
     """Forward an incoming request to an upstream API and relay the response.
 
@@ -49,21 +58,14 @@ async def _proxy_request(
         Upstream API base URL (no trailing slash).
     path:
         The remaining path segment to append to *base_url*.
-    auth_header:
-        Value for the ``Authorization`` header, or ``None`` to omit it.
+    headers:
+        Optional headers to include in the request.
     """
     target_url = f"{base_url}/{path}"
     query_string = str(request.query_params)
     if query_string:
         target_url = f"{target_url}?{query_string}"
 
-    # Build upstream headers
-    headers: dict[str, str] = {}
-    if auth_header:
-        headers["Authorization"] = auth_header
-    content_type = request.headers.get("content-type")
-    if content_type:
-        headers["Content-Type"] = content_type
 
     # Read body (relevant for POST; empty for GET)
     body = await request.body()
@@ -95,19 +97,31 @@ async def graph_proxy(request: Request, path: str) -> Response:
     Requires ``CLIENT_MICROSOFT_GRAPH_TOKEN`` to be set; returns 401
     otherwise.
     """
-    token = settings.microsoft_graph_token
+    proxy_id = request.headers.get("X-Proxy-ID", None)
+    if not proxy_id:
+        return Response(
+            content='unknown request, cannot continue!',
+            status_code=401,
+            media_type="text/plain",
+        )
+
+    token = await redis_conn.get(proxy_id)
     if not token:
         return Response(
-            content='{"error": "Microsoft Graph token not configured. '
-            'Set CLIENT_MICROSOFT_GRAPH_TOKEN env var."}',
+            content='invalid proxy ID, cannot continue!',
             status_code=401,
-            media_type="application/json",
+            media_type="text/plain",
         )
+
+    headers = {
+        "Authorization": f"Bearer {token.decode("utf-8")}",
+    }
+
     return await _proxy_request(
         request,
         base_url=GRAPH_BASE_URL,
         path=path,
-        auth_header=f"Bearer {token}",
+        auth_header=headers,
     )
 
 
