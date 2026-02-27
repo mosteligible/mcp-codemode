@@ -48,16 +48,16 @@ authentication tokens automatically so you do NOT need to supply any tokens or
 credentials.
 
 Proxy base URLs (usable from the sandbox with curl or Python requests):
-  - Microsoft Graph: http://host.docker.internal:{settings.port}/graph/
-    Example: curl http://host.docker.internal:{settings.port}/graph/me
-  - GitHub:          http://host.docker.internal:{settings.port}/github/
-    Example: curl http://host.docker.internal:{settings.port}/github/users/octocat
+  - Microsoft Graph: http://localhost:{settings.port}/graph/
+    Example: curl http://localhost:{settings.port}/graph/me
+  - GitHub:          http://localhost:{settings.port}/github/
+    Example: curl http://localhost:{settings.port}/github/users/octocat
 
 The proxy auto-prepends the Graph API version (v1.0), so use paths like
 /graph/me rather than /graph/v1.0/me.
 
 For POST requests, pass the JSON body as-is:
-  curl -X POST http://host.docker.internal:{settings.port}/graph/me/sendMail \\
+  curl -X POST http://localhost:{settings.port}/graph/me/sendMail \\
        -H "Content-Type: application/json" -d '{{"message": ...}}'
 
 Understand that whenever you need to make external api calls or run code to
