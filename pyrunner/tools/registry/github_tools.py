@@ -109,6 +109,77 @@ async def list_pull_requests_opened_by_user(
     return pull_requests
 
 
+async def list_pull_requests_closed_by_user(
+    ctx: CurrentContext,
+    username: str,
+    per_page: int = 100,
+    max_pages: int = 5,
+) -> dict[str, Any]:
+    """List closed pull requests authored by a GitHub user and total PRs created.
+
+    Args:
+        ctx: Current FastMCP tool context.
+        username: GitHub username.
+        per_page: Number of closed PR results per page.
+        max_pages: Maximum pages of closed PR results to fetch.
+
+    Returns:
+        A payload with total PR count created by the user and fetched closed PR items.
+    """
+    headers = {"Accept": "application/vnd.github+json"}
+    closed_pull_requests: list[dict[str, Any]] = []
+    total_pull_requests_created = 0
+
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+        total_payload = await request_json(
+            client,
+            "GET",
+            f"{GITHUB_BASE_URL}/search/issues",
+            headers=headers,
+            params={
+                "q": f"type:pr author:{username}",
+                "per_page": 1,
+                "page": 1,
+            },
+        )
+
+        if isinstance(total_payload, dict):
+            total_count = total_payload.get("total_count")
+            if isinstance(total_count, int) and total_count >= 0:
+                total_pull_requests_created = total_count
+
+        for page in range(1, max_pages + 1):
+            payload = await request_json(
+                client,
+                "GET",
+                f"{GITHUB_BASE_URL}/search/issues",
+                headers=headers,
+                params={
+                    "q": f"type:pr author:{username} is:closed",
+                    "per_page": per_page,
+                    "page": page,
+                },
+            )
+
+            if not isinstance(payload, dict):
+                break
+
+            items = payload.get("items", [])
+            if not isinstance(items, list) or not items:
+                break
+
+            closed_pull_requests.extend(item for item in items if isinstance(item, dict))
+            if len(items) < per_page:
+                break
+
+    return {
+        "username": username,
+        "total_pull_requests_created": total_pull_requests_created,
+        "total_closed_pull_requests_fetched": len(closed_pull_requests),
+        "closed_pull_requests": closed_pull_requests,
+    }
+
+
 async def list_issues_opened_by_user(
     ctx: CurrentContext,
     username: str,

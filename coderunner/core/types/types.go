@@ -6,6 +6,7 @@ type CodeRunnerRequest struct {
 }
 
 type CommandOutput struct {
-	Output string `json:"output"`
-	Error  string `json:"error,omitempty"`
+	Output       string `json:"output"`
+	ErrorMessage string `json:"error,omitempty"`
+	Err          error  `json:"-"`
 }

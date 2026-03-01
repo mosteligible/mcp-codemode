@@ -3,10 +3,11 @@ package states
 import (
 	"log/slog"
 	"math/rand"
-	"os/exec"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/mosteligible/mcp-codemode/coderunner/core/common"
 )
 
 type ContainerState struct {
@@ -53,16 +54,15 @@ func (s *ContainerState) SetAvailableContainers() error {
 	// for simplicity, we will just generate some random container ids here
 	s.readWriteMutex.Lock()
 	defer s.readWriteMutex.Unlock()
-	result := exec.Command(
-		"bash", "-c", "docker ps --format \"{{.ID}}\"",
+	result := common.ExecuteCommand(
+		"bash -c \"docker ps --format '{{.ID}}'\"",
 	)
-	output, err := result.Output()
-	if err != nil {
-		return err
+	if result.Err != nil {
+		return result.Err
 	}
 
 	// split the output by newlines and update the list of available containers
-	stdout := string(output)
+	stdout := result.Output
 	lines := strings.Split(stdout, "\n")
 	s.Ids = []string{}
 	for _, line := range lines {

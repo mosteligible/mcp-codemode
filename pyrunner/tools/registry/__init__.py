@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
 from .github_tools import (
     list_issues_opened_by_user,
+    list_pull_requests_closed_by_user,
     list_pull_requests_opened_by_user,
     list_user_repositories,
 )
@@ -55,6 +56,7 @@ __all__ = [
     "list_team_channels",
     "list_user_repositories",
     "list_pull_requests_opened_by_user",
+    "list_pull_requests_closed_by_user",
     "list_issues_opened_by_user",
     "register_registry_tools",
 ]
@@ -80,4 +82,5 @@ def register_registry_tools(mcp: FastMCP) -> None:
     mcp.tool()(list_team_channels)
     mcp.tool()(list_user_repositories)
     mcp.tool()(list_pull_requests_opened_by_user)
+    mcp.tool()(list_pull_requests_closed_by_user)
     mcp.tool()(list_issues_opened_by_user)

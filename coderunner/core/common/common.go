@@ -26,7 +26,7 @@ func ExecuteCommand(instruction string) types.CommandOutput {
 	// execute the command and capture the output and error
 	instruction = strings.TrimSpace(instruction)
 	if instruction == "" {
-		output.Error = "No command provided"
+		output.ErrorMessage = "No command provided"
 		return output
 	}
 
@@ -40,7 +40,8 @@ func ExecuteCommand(instruction string) types.CommandOutput {
 	)
 	outputBytes, err := cmd.CombinedOutput()
 	if err != nil {
-		output.Error = err.Error()
+		output.ErrorMessage = err.Error()
+		output.Err = err
 	}
 	output.Output = string(outputBytes)
 	return output

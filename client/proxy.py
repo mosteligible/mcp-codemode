@@ -136,10 +136,10 @@ async def github_proxy(request: Request, path: str) -> Response:
     requests are made without authentication (public API access).
     """
     token = settings.github_token
-    auth_header = f"Bearer {token}" if token else None
+    headers = {"accept": "application/vnd.github.v3+json"}
     return await _proxy_request(
         request,
         base_url=GITHUB_BASE_URL,
         path=path,
-        auth_header=auth_header,
+        headers=headers,
     )
