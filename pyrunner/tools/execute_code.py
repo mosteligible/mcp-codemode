@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from fastmcp import FastMCP
+
 from core.sandbox import pool
 from log import app_logger
 
 
-def register(mcp) -> None:  # noqa: ANN001
+def register(mcp: FastMCP) -> None:
     """Register the execute_code tool on the given FastMCP instance."""
 
     @mcp.tool()

@@ -17,7 +17,7 @@ cd pyrunner
 uv sync
 
 # Run the MCP server
-uv run python main.py
+uv run uvicorn main:app
 ```
 
 The server starts on `http://0.0.0.0:8000` with the MCP endpoint at `/mcp`.

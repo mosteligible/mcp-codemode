@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import posixpath
 
+from fastmcp import FastMCP
+
 from core.sandbox import pool
 from log import app_logger
 
@@ -33,7 +35,7 @@ def _safe_path(path: str) -> str:
     return resolved
 
 
-def register(mcp) -> None:  # noqa: ANN001
+def register(mcp: FastMCP) -> None:
     """Register file I/O tools on the given FastMCP instance."""
 
     @mcp.tool()

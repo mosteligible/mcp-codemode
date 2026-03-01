@@ -69,7 +69,7 @@ class SandboxPool:
                     mem_limit=settings.container_memory_limit,
                     cpu_period=cpu_period,
                     cpu_quota=cpu_quota,
-                    network_mode="bridge",
+                    network_mode="host",
                     working_dir="/workspace",
                     stdin_open=True,
                     labels={"mcp-codemode": "sandbox"},
