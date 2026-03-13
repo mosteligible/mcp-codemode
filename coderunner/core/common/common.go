@@ -1,11 +1,13 @@
 package common
 
 import (
+	"errors"
 	"math/rand"
 	"os/exec"
 	"strings"
 
 	"github.com/mosteligible/mcp-codemode/coderunner/config"
+	"github.com/mosteligible/mcp-codemode/coderunner/constants"
 	"github.com/mosteligible/mcp-codemode/coderunner/core/types"
 )
 
@@ -19,6 +21,29 @@ func SanitizeMessage(message string) string {
 
 func GetAnAvailableRemoteHost() string {
 	return config.Conf.RemoteHosts[rand.Intn(len(config.Conf.RemoteHosts))]
+}
+
+func GetUrlFromProxyPath(path, method string) (types.ProxyTarget, error) {
+	if path[0] != '/' {
+		return types.ProxyTarget{}, errors.New("invalid path")
+	}
+	parts := strings.Split(path[1:], "/")
+	switch parts[0] {
+	case constants.GITHUB_BASE:
+		return types.ProxyTarget{
+			Base:   constants.GITHUB_BASE,
+			Url:    constants.GITHUB_BASE_URL,
+			Method: method,
+		}, nil
+	case constants.MICROSOFT_GRAPH_BASE:
+		return types.ProxyTarget{
+			Base:   constants.MICROSOFT_GRAPH_BASE,
+			Url:    constants.MICROSOFT_GRAPH_BASE_URL,
+			Method: method,
+		}, nil
+	default:
+		return types.ProxyTarget{}, errors.New("unknown path")
+	}
 }
 
 func ExecuteCommand(instruction string) types.CommandOutput {
