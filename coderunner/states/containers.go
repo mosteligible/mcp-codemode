@@ -16,6 +16,7 @@ type ContainerState struct {
 }
 
 func NewContainerState() *ContainerState {
+	slog.Warn("no minimum number of containers set")
 	cs := &ContainerState{
 		Ids:            []string{},
 		readWriteMutex: &sync.RWMutex{},
