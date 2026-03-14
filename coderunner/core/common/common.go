@@ -2,25 +2,19 @@ package common
 
 import (
 	"errors"
-	"math/rand"
 	"os/exec"
 	"strings"
 
-	"github.com/mosteligible/mcp-codemode/coderunner/config"
 	"github.com/mosteligible/mcp-codemode/coderunner/constants"
 	"github.com/mosteligible/mcp-codemode/coderunner/core/types"
 )
 
-func SanitizeMessage(message string) string {
+func SanitizeMessage(message string, remoteHosts []string) string {
 	// remove any mention of remote host ips or ssh errors from message
-	for _, host := range config.Conf.RemoteHosts {
+	for _, host := range remoteHosts {
 		message = strings.ReplaceAll(message, host, "remote_host")
 	}
 	return message
-}
-
-func GetAnAvailableRemoteHost() string {
-	return config.Conf.RemoteHosts[rand.Intn(len(config.Conf.RemoteHosts))]
 }
 
 func GetUrlFromProxyPath(path, method string) (types.ProxyTarget, error) {
@@ -46,7 +40,7 @@ func GetUrlFromProxyPath(path, method string) (types.ProxyTarget, error) {
 	}
 }
 
-func ExecuteCommand(instruction string) types.CommandOutput {
+func ExecuteCommand(appUserName, remoteHost, instruction string) types.CommandOutput {
 	output := types.CommandOutput{}
 	// execute the command and capture the output and error
 	instruction = strings.TrimSpace(instruction)
@@ -55,8 +49,7 @@ func ExecuteCommand(instruction string) types.CommandOutput {
 		return output
 	}
 
-	remoteHost := GetAnAvailableRemoteHost()
-	instruction = config.Conf.AppUserName + "@" + remoteHost + " '" + instruction + "'"
+	instruction = appUserName + "@" + remoteHost + " '" + instruction + "'"
 
 	cmd := exec.Command(
 		"ssh",
