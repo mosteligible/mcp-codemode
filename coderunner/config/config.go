@@ -18,10 +18,10 @@ type Config struct {
 }
 
 func (c *Config) ReloadConfig() {
-	c = newConfig()
+	c = NewConfig()
 }
 
-func newConfig() *Config {
+func NewConfig() *Config {
 	remoteHosts := os.Getenv("REMOTE_HOSTS")
 	redisDb, err := strconv.Atoi(os.Getenv("REDIS_DB"))
 	if err != nil {
@@ -38,5 +38,3 @@ func newConfig() *Config {
 		RedisDB:       redisDb,
 	}
 }
-
-var Conf = newConfig()

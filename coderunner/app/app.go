@@ -2,7 +2,7 @@ package app
 
 import (
 	"encoding/json"
-	"fmt"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
@@ -20,25 +20,27 @@ import (
 type App struct {
 	wrapper             http.Handler
 	port                string
+	appConfig           *config.Config
 	redisClient         *redis.Client
-	availableContainers states.ContainerState
+	availableContainers states.ExecutorState
 	requestClient       *http.Client
 }
 
 func NewApp(port string) *App {
-	fmt.Println(config.Conf)
+	conf := config.NewConfig()
 	redisOpts := &redis.Options{
 		Addr: "localhost:6379",
 		DB:   0,
 	}
-	if config.Conf.RedisPassword != "" {
-		redisOpts.Password = config.Conf.RedisPassword
+	if conf.RedisPassword != "" {
+		redisOpts.Password = conf.RedisPassword
 	}
 	redisClient := redis.NewClient(redisOpts)
 
 	app := &App{
 		port:                port,
-		availableContainers: *states.NewContainerState(),
+		appConfig:           conf,
+		availableContainers: *states.NewExecutorState(),
 		redisClient:         redisClient,
 		requestClient: &http.Client{
 			Timeout: 180 * time.Second,
@@ -72,7 +74,8 @@ func (a *App) RunCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	output := common.ExecuteCommand(codeRequest.Code)
+	randIndex := rand.Intn(len(a.appConfig.RemoteHosts))
+	output := common.ExecuteCommand(a.appConfig.AppUserName, a.appConfig.RemoteHosts[randIndex], codeRequest.Code)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(output)
 
