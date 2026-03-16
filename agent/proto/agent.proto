@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package agent;
+package pb;
 
 import "google/protobuf/empty.proto";
 
-option go_package = "github.com/mosteligible/mcp-codemode/agent";
+option go_package = "github.com/mosteligible/mcp-codemode/agent/pb";
 
 message ExecuteCodeRequest {
     string instruction = 1;
