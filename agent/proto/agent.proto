@@ -1,10 +1,12 @@
 syntax = "proto3";
 
+package agent;
+
 import "google/protobuf/empty.proto";
 
-option go_package = "github.com/mosteligible/mcp-codemode/agent/proto";
+option go_package = "github.com/mosteligible/mcp-codemode/agent";
 
-message Instruction {
+message ExecuteCodeRequest {
     string instruction = 1;
     string language = 2;
 }
@@ -14,13 +16,13 @@ message HealthStatus {
     string message = 2;
 }
 
-message CodeExecutionResult {
+message ExecuteCodeResponse {
     int32 exit_code = 1;
     string output = 2;
     string error = 3;
 }
 
-service Health {
+service Agent {
     rpc Status(google.protobuf.Empty) returns (HealthStatus);
-    rpc ExecuteCode(Instruction) returns (CodeExecutionResult);
+    rpc ExecuteCode(ExecuteCodeRequest) returns (ExecuteCodeResponse);
 }
