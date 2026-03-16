@@ -4,7 +4,7 @@
 // - protoc             v7.34.0
 // source: agent.proto
 
-package agent
+package pb
 
 import (
 	context "context"
@@ -20,8 +20,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Agent_Status_FullMethodName      = "/agent.Agent/Status"
-	Agent_ExecuteCode_FullMethodName = "/agent.Agent/ExecuteCode"
+	Agent_Status_FullMethodName      = "/pb.Agent/Status"
+	Agent_ExecuteCode_FullMethodName = "/pb.Agent/ExecuteCode"
 )
 
 // AgentClient is the client API for Agent service.
@@ -143,7 +143,7 @@ func _Agent_ExecuteCode_Handler(srv interface{}, ctx context.Context, dec func(i
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Agent_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "agent.Agent",
+	ServiceName: "pb.Agent",
 	HandlerType: (*AgentServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
