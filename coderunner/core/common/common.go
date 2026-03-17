@@ -1,12 +1,14 @@
 package common
 
 import (
+	"context"
 	"errors"
-	"os/exec"
 	"strings"
 
+	"github.com/mosteligible/mcp-codemode/agent-proto/pb"
 	"github.com/mosteligible/mcp-codemode/coderunner/constants"
 	"github.com/mosteligible/mcp-codemode/coderunner/core/types"
+	workerclient "github.com/mosteligible/mcp-codemode/coderunner/core/worker_client"
 )
 
 func SanitizeMessage(message string, remoteHosts []string) string {
@@ -40,7 +42,7 @@ func GetUrlFromProxyPath(path, method string) (types.ProxyTarget, error) {
 	}
 }
 
-func ExecuteCommand(appUserName, remoteHost, instruction string) types.CommandOutput {
+func ExecuteCommand(connection *workerclient.WorkerClient, instruction, language string) types.CommandOutput {
 	output := types.CommandOutput{}
 	// execute the command and capture the output and error
 	instruction = strings.TrimSpace(instruction)
@@ -49,18 +51,17 @@ func ExecuteCommand(appUserName, remoteHost, instruction string) types.CommandOu
 		return output
 	}
 
-	instruction = appUserName + "@" + remoteHost + " '" + instruction + "'"
-
-	cmd := exec.Command(
-		"ssh",
-		"-t",
-		instruction,
+	result, err := connection.Client.ExecuteCode(
+		context.Background(), &pb.ExecuteCodeRequest{
+			Instruction: instruction,
+			Language:    language,
+		},
 	)
-	outputBytes, err := cmd.CombinedOutput()
 	if err != nil {
 		output.ErrorMessage = err.Error()
-		output.Err = err
+		return output
 	}
-	output.Output = string(outputBytes)
+	output.Output = result.Output
+
 	return output
 }

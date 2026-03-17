@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"log/slog"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/mosteligible/mcp-codemode/coderunner/core/common"
 	"github.com/mosteligible/mcp-codemode/coderunner/core/handlers"
 	"github.com/mosteligible/mcp-codemode/coderunner/core/types"
+	workerclient "github.com/mosteligible/mcp-codemode/coderunner/core/worker_client"
 	"github.com/mosteligible/mcp-codemode/coderunner/middlewares"
 	"github.com/mosteligible/mcp-codemode/coderunner/states"
 	"github.com/redis/go-redis/v9"
@@ -24,6 +26,7 @@ type App struct {
 	redisClient         *redis.Client
 	availableContainers states.ExecutorState
 	requestClient       *http.Client
+	grpcConnections     map[string]*workerclient.WorkerClient
 }
 
 func NewApp(port string) *App {
@@ -37,6 +40,16 @@ func NewApp(port string) *App {
 	}
 	redisClient := redis.NewClient(redisOpts)
 
+	grpcConnections := make(map[string]*workerclient.WorkerClient)
+	for _, host := range conf.RemoteHosts {
+		conn, err := workerclient.NewWorkerClient(host)
+		if err != nil {
+			slog.Error("could not connect to worker at:" + host)
+			continue
+		}
+		grpcConnections[host] = conn
+	}
+
 	app := &App{
 		port:                port,
 		appConfig:           conf,
@@ -45,6 +58,7 @@ func NewApp(port string) *App {
 		requestClient: &http.Client{
 			Timeout: 180 * time.Second,
 		},
+		grpcConnections: grpcConnections,
 	}
 
 	app.init()
@@ -74,8 +88,9 @@ func (a *App) RunCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	randIndex := rand.Intn(len(a.appConfig.RemoteHosts))
-	output := common.ExecuteCommand(a.appConfig.AppUserName, a.appConfig.RemoteHosts[randIndex], codeRequest.Code)
+	randIndex := rand.Intn(len(a.grpcConnections))
+	conn := a.grpcConnections[a.appConfig.RemoteHosts[randIndex]]
+	output := common.ExecuteCommand(conn, codeRequest.Code, codeRequest.Language)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(output)
 
