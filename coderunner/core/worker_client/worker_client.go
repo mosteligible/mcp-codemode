@@ -1,7 +1,7 @@
 package workerclient
 
 import (
-	pb "github.com/mosteligible/mcp-codemode/coderunner/agent-proto"
+	pb "github.com/mosteligible/mcp-codemode/agent-proto/pb"
 	"google.golang.org/grpc"
 )
 
