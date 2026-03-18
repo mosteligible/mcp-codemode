@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"net"
 
-	"github.com/mosteligible/mcp-codemode/agent/pb"
+	"github.com/mosteligible/mcp-codemode/agent-proto/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

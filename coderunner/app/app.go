@@ -15,18 +15,16 @@ import (
 	"github.com/mosteligible/mcp-codemode/coderunner/core/types"
 	workerclient "github.com/mosteligible/mcp-codemode/coderunner/core/worker_client"
 	"github.com/mosteligible/mcp-codemode/coderunner/middlewares"
-	"github.com/mosteligible/mcp-codemode/coderunner/states"
 	"github.com/redis/go-redis/v9"
 )
 
 type App struct {
-	wrapper             http.Handler
-	port                string
-	appConfig           *config.Config
-	redisClient         *redis.Client
-	availableContainers states.ExecutorState
-	requestClient       *http.Client
-	grpcConnections     map[string]*workerclient.WorkerClient
+	wrapper         http.Handler
+	port            string
+	appConfig       *config.Config
+	redisClient     *redis.Client
+	requestClient   *http.Client
+	grpcConnections map[string]*workerclient.WorkerClient
 }
 
 func NewApp(port string) *App {
@@ -41,6 +39,7 @@ func NewApp(port string) *App {
 	redisClient := redis.NewClient(redisOpts)
 
 	grpcConnections := make(map[string]*workerclient.WorkerClient)
+	slog.Info("remote hosts: " + strings.Join(conf.RemoteHosts, ", "))
 	for _, host := range conf.RemoteHosts {
 		conn, err := workerclient.NewWorkerClient(host)
 		if err != nil {
@@ -51,10 +50,9 @@ func NewApp(port string) *App {
 	}
 
 	app := &App{
-		port:                port,
-		appConfig:           conf,
-		availableContainers: *states.NewExecutorState(),
-		redisClient:         redisClient,
+		port:        port,
+		appConfig:   conf,
+		redisClient: redisClient,
 		requestClient: &http.Client{
 			Timeout: 180 * time.Second,
 		},
@@ -70,6 +68,7 @@ func (a *App) init() {
 
 	mux.HandleFunc("/run", a.RunCode)
 	mux.HandleFunc("/proxy", a.Proxy)
+	mux.HandleFunc("/status", a.status)
 	a.wrapper = middlewares.LoggingMiddleware(mux)
 }
 
@@ -77,6 +76,11 @@ func (a *App) Start() error {
 	return http.ListenAndServe(
 		a.port, a.wrapper,
 	)
+}
+
+func (a *App) status(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]int16{"status": 200})
 }
 
 func (a *App) RunCode(w http.ResponseWriter, r *http.Request) {

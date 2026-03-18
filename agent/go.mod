@@ -3,6 +3,7 @@ module github.com/mosteligible/mcp-codemode/agent
 go 1.24.5
 
 require (
+	github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260317045805-5d9aa1174bf2
 	google.golang.org/grpc v1.79.2
 	google.golang.org/protobuf v1.36.11
 )
