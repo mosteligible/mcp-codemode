@@ -55,12 +55,25 @@ func (c ActiveContainers) Execute(ctx context.Context, containerClient *client.C
 	if err != nil {
 		return types.ExecuteResult{}, fmt.Errorf("error attaching to exec instance: %s", err.Error())
 	}
+	done := make(chan struct{})
+	go func() {
+		select {
+		case <-ctx.Done():
+			attachResult.Close()
+		case <-done:
+		}
+	}()
+	defer close(done)
 	defer attachResult.Close()
 
 	stdout := bufferPool.Get().(*bytes.Buffer)
-	defer bufferPool.Put(stdout)
 	stderr := bufferPool.Get().(*bytes.Buffer)
-	defer bufferPool.Put(stderr)
+	defer func() {
+		stdout.Reset()
+		stderr.Reset()
+		bufferPool.Put(stderr)
+		bufferPool.Put(stdout)
+	}()
 
 	if _, err := stdcopy.StdCopy(stdout, stderr, attachResult.Reader); err != nil {
 		return types.ExecuteResult{}, fmt.Errorf("error copying output: %s", err.Error())
@@ -77,7 +90,7 @@ type ContainerState struct {
 	containerImageName  string
 	MinActive           int
 	ProgrammingLanguage string
-	containers          ActiveContainers
+	Containers          ActiveContainers
 }
 
 func NewContainerState(containerClient *client.Client, imageName string, minActive int) *ContainerState {
@@ -93,7 +106,7 @@ func NewContainerState(containerClient *client.Client, imageName string, minActi
 	return &ContainerState{
 		containerImageName: imageName,
 		MinActive:          minActive,
-		containers:         make(ActiveContainers),
+		Containers:         make(ActiveContainers),
 	}
 }
 
