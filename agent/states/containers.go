@@ -55,16 +55,13 @@ func (c ActiveContainers) Execute(ctx context.Context, containerClient *client.C
 	if err != nil {
 		return types.ExecuteResult{}, fmt.Errorf("error attaching to exec instance: %s", err.Error())
 	}
-	done := make(chan struct{})
-	go func() {
-		select {
-		case <-ctx.Done():
-			attachResult.Close()
-		case <-done:
-		}
-	}()
-	defer close(done)
 	defer attachResult.Close()
+
+	select {
+	case <-ctx.Done():
+		return types.ExecuteResult{}, fmt.Errorf("execution timed out")
+	default:
+	}
 
 	stdout := bufferPool.Get().(*bytes.Buffer)
 	stderr := bufferPool.Get().(*bytes.Buffer)
