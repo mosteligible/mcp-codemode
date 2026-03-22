@@ -32,8 +32,18 @@ func NewServer(containerImageName string, minActive int) *Server {
 	}
 
 	slog.Info("docker found, starting server")
+	containerState := states.NewContainerState(dockerClient, containerImageName, minActive)
+
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			containerState.Containers.SetActiveContainers(dockerClient)
+		}
+	}()
+
 	return &Server{
-		containerState:  states.NewContainerState(dockerClient, containerImageName, minActive),
+		containerState:  containerState,
 		containerClient: dockerClient,
 	}
 }
