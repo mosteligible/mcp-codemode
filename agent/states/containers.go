@@ -21,21 +21,30 @@ var bufferPool = sync.Pool{
 }
 
 type ContainerId string
-type ActiveContainers map[ContainerId]bool
-
-func (c ActiveContainers) Add(id ContainerId) {
-	c[id] = true
+type ActiveContainers struct {
+	ids  map[ContainerId]bool
+	lock sync.RWMutex
 }
 
-func (c ActiveContainers) Remove(id ContainerId) {
-	delete(c, id)
+func (c *ActiveContainers) Add(id ContainerId) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	c.ids[id] = true
 }
 
-func (c ActiveContainers) Count() int {
-	return len(c)
+func (c *ActiveContainers) Remove(id ContainerId) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	delete(c.ids, id)
 }
 
-func (c ActiveContainers) Execute(ctx context.Context, containerClient *client.Client, instruction string) (types.ExecuteResult, error) {
+func (c *ActiveContainers) Count() int {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	return len(c.ids)
+}
+
+func (c *ActiveContainers) Execute(ctx context.Context, containerClient *client.Client, instruction string) (types.ExecuteResult, error) {
 	result, err := containerClient.ExecCreate(
 		ctx,
 		"placeholder",
@@ -76,11 +85,36 @@ func (c ActiveContainers) Execute(ctx context.Context, containerClient *client.C
 		return types.ExecuteResult{}, fmt.Errorf("error copying output: %s", err.Error())
 	}
 
+	inspectResp, err := containerClient.ExecInspect(ctx, result.ID, client.ExecInspectOptions{})
+	if err != nil {
+		return types.ExecuteResult{}, fmt.Errorf("error inspecting exec instance: %s", err.Error())
+	}
+
 	return types.ExecuteResult{
-		ExitCode: 0,
+		ExitCode: inspectResp.ExitCode,
 		Stdout:   stdout.String(),
 		Stderr:   stderr.String(),
 	}, nil
+}
+
+func (c *ActiveContainers) SetActiveContainers(containerClient *client.Client) {
+	// run in a goroutine at intervals to update the active containers
+	// where
+	containers, err := containerClient.ContainerList(context.Background(), client.ContainerListOptions{})
+	if err != nil {
+		log.Printf("error listing containers: %s", err.Error())
+		return
+	}
+
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	currentContainers := make(map[ContainerId]bool)
+	for _, container := range containers.Items {
+		currentContainers[ContainerId(container.ID)] = true
+	}
+
+	c.ids = currentContainers
 }
 
 type ContainerState struct {
@@ -103,7 +137,7 @@ func NewContainerState(containerClient *client.Client, imageName string, minActi
 	return &ContainerState{
 		containerImageName: imageName,
 		MinActive:          minActive,
-		Containers:         make(ActiveContainers),
+		Containers:         ActiveContainers{ids: make(map[ContainerId]bool)},
 	}
 }
 
