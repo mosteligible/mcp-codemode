@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -22,20 +23,25 @@ var bufferPool = sync.Pool{
 
 type ContainerId string
 type ActiveContainers struct {
-	ids  map[ContainerId]bool
+	ids  []string
 	lock sync.RWMutex
 }
 
 func (c *ActiveContainers) Add(id ContainerId) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.ids[id] = true
+	c.ids = append(c.ids, string(id))
 }
 
 func (c *ActiveContainers) Remove(id ContainerId) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	delete(c.ids, id)
+	for i, v := range c.ids {
+		if v == string(id) {
+			c.ids = append(c.ids[:i], c.ids[i+1:]...)
+			break
+		}
+	}
 }
 
 func (c *ActiveContainers) Count() int {
@@ -45,9 +51,19 @@ func (c *ActiveContainers) Count() int {
 }
 
 func (c *ActiveContainers) Execute(ctx context.Context, containerClient *client.Client, instruction string) (types.ExecuteResult, error) {
+	// get random id from active containers
+	c.lock.RLock()
+	if len(c.ids) == 0 {
+		c.lock.RUnlock()
+		return types.ExecuteResult{}, fmt.Errorf("no active containers available")
+	}
+	randindex := rand.Intn(len(c.ids))
+	containerID := c.ids[randindex]
+	c.lock.RUnlock()
+
 	result, err := containerClient.ExecCreate(
 		ctx,
-		"placeholder",
+		containerID,
 		client.ExecCreateOptions{
 			Cmd:          []string{"bash", "-c", instruction},
 			AttachStdout: true,
@@ -109,9 +125,9 @@ func (c *ActiveContainers) SetActiveContainers(containerClient *client.Client) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
-	currentContainers := make(map[ContainerId]bool)
+	currentContainers := []string{}
 	for _, container := range containers.Items {
-		currentContainers[ContainerId(container.ID)] = true
+		currentContainers = append(currentContainers, container.ID)
 	}
 
 	c.ids = currentContainers
@@ -137,7 +153,7 @@ func NewContainerState(containerClient *client.Client, imageName string, minActi
 	return &ContainerState{
 		containerImageName: imageName,
 		MinActive:          minActive,
-		Containers:         ActiveContainers{ids: make(map[ContainerId]bool)},
+		Containers:         ActiveContainers{ids: []string{}},
 	}
 }
 
