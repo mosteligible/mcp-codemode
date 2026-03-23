@@ -15,3 +15,6 @@ skills/
 .vscode/
 *.prompt.md
 logs/
+node_modules/
+web/.next/
+web/node_modules/
