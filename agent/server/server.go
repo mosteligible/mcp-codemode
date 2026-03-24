@@ -8,6 +8,7 @@ import (
 
 	"github.com/moby/moby/client"
 	"github.com/mosteligible/mcp-codemode/agent-proto/pb"
+	"github.com/mosteligible/mcp-codemode/agent/config"
 	"github.com/mosteligible/mcp-codemode/agent/core"
 	"github.com/mosteligible/mcp-codemode/agent/states"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -17,9 +18,12 @@ type Server struct {
 	pb.UnimplementedAgentServer
 	containerState  *states.ContainerState
 	containerClient *client.Client
+	config          *config.Config
 }
 
-func NewServer(containerImageName string, minActive int) *Server {
+func NewServer() *Server {
+	slog.Info("starting server")
+	conf := config.NewConfig()
 	dockerClient, err := client.New(
 		client.FromEnv,
 	)
@@ -32,19 +36,21 @@ func NewServer(containerImageName string, minActive int) *Server {
 	}
 
 	slog.Info("docker found, starting server")
-	containerState := states.NewContainerState(dockerClient, containerImageName, minActive)
+	containerState := states.NewContainerState(dockerClient, conf.DockerImageName, conf.MinActive)
 
 	go func() {
-		ticker := time.NewTicker(10 * time.Second)
+		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 		for range ticker.C {
-			containerState.Containers.SetActiveContainers(dockerClient)
+			slog.Info("setting minimum active containers")
+			containerState.Containers.SetActiveContainers(dockerClient, conf.MinActive, conf.DockerImageName)
 		}
 	}()
 
 	return &Server{
 		containerState:  containerState,
 		containerClient: dockerClient,
+		config:          conf,
 	}
 }
 
@@ -72,4 +78,9 @@ func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*p
 		Output:   result.Stdout,
 		Error:    result.Stderr,
 	}, nil
+}
+
+func (s *Server) HandleShutdown() {
+	slog.Info("shutting down server, cleaning up containers...")
+	s.containerState.StopActiveContainers(s.containerClient)
 }

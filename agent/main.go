@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
 	"log/slog"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/mosteligible/mcp-codemode/agent-proto/pb"
 	"github.com/mosteligible/mcp-codemode/agent/server"
@@ -16,10 +20,25 @@ func main() {
 		log.Fatal(err.Error())
 	}
 
-	grpcServer := grpc.NewServer()
-	pb.RegisterAgentServer(grpcServer, &server.Server{})
-	slog.Info("Starting server on port: 30031")
-	if err := grpcServer.Serve(listen); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+	defer stop()
+
+	gserver := server.NewServer()
+	serverErr := make(chan error, 1)
+	go func() {
+		grpcServer := grpc.NewServer()
+		pb.RegisterAgentServer(grpcServer, gserver)
+		slog.Info("Starting server on port: 30031")
+		if err := grpcServer.Serve(listen); err != nil {
+			serverErr <- err
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		slog.Info("Shutting down server...")
+	case err := <-serverErr:
+		gserver.HandleShutdown()
+		log.Fatalf("Server error: %v", err)
 	}
 }

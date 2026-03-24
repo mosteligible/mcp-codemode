@@ -6,6 +6,7 @@ import (
 
 type Config struct {
 	DockerApiVersion string
+	DockerImageName  string
 	WorkerPort       string
 	MinActive        int
 }
@@ -13,6 +14,7 @@ type Config struct {
 func NewConfig() *Config {
 	return &Config{
 		DockerApiVersion: "1.40",
+		DockerImageName:  constants.DefaultDockerImageName,
 		WorkerPort:       constants.DefaultWorkerPort,
 		MinActive:        constants.DefaultMinActive,
 	}
