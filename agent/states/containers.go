@@ -14,6 +14,7 @@ import (
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
 	"github.com/mosteligible/mcp-codemode/agent/constants"
+	"github.com/mosteligible/mcp-codemode/agent/core/common"
 	"github.com/mosteligible/mcp-codemode/agent/types"
 )
 
@@ -31,11 +32,12 @@ type ActiveContainers struct {
 	lock         sync.RWMutex
 }
 
-func NewActiveContainers(containerClient *client.Client) *ActiveContainers {
+func NewActiveContainers(containerClient *client.Client, minActive int, imageName string) *ActiveContainers {
 	ac := ActiveContainers{
 		ids:          []string{},
 		containerMap: make(map[string]struct{}),
 	}
+	ac.SetActiveContainers(containerClient, minActive, imageName)
 
 	return &ac
 }
@@ -129,15 +131,15 @@ func (c *ActiveContainers) Execute(ctx context.Context, containerClient *client.
 func (c *ActiveContainers) SetActiveContainers(containerClient *client.Client, minActive int, imageName string) {
 	// run in a goroutine at intervals to update the active containers
 	// where
-	containers, err := containerClient.ContainerList(context.Background(), client.ContainerListOptions{})
+	containers, err := common.GetActiveContainerIds(containerClient)
 	if err != nil {
 		slog.Error("error listing containers: " + err.Error())
 		return
 	}
 
-	if len(containers.Items) < minActive {
+	if len(containers) < minActive {
 		slog.Info("active containers below minimum, creating new container")
-		for range minActive - len(containers.Items) {
+		for range minActive - len(containers) {
 			newContainer, err := containerClient.ContainerCreate(
 				context.Background(),
 				client.ContainerCreateOptions{
@@ -154,16 +156,17 @@ func (c *ActiveContainers) SetActiveContainers(containerClient *client.Client, m
 				slog.Error("error starting container: " + err.Error())
 				continue
 			}
+			containers = append(containers, newContainer.ID)
 		}
 	}
 
 	currentContainers := []string{}
 	containerMap := make(map[string]struct{})
 	seenItems := 0
-	for _, container := range containers.Items {
-		currentContainers = append(currentContainers, container.ID)
-		containerMap[container.ID] = struct{}{}
-		if _, exists := containerMap[container.ID]; exists {
+	for _, containerID := range containers {
+		currentContainers = append(currentContainers, containerID)
+		containerMap[containerID] = struct{}{}
+		if _, exists := c.containerMap[containerID]; exists {
 			seenItems++
 		}
 	}
@@ -213,19 +216,19 @@ func NewContainerState(containerClient *client.Client, imageName string, minActi
 	return &ContainerState{
 		containerImageName: imageName,
 		MinActive:          minActive,
-		Containers:         NewActiveContainers(containerClient),
+		Containers:         NewActiveContainers(containerClient, minActive, imageName),
 	}
 }
 
 func (cs *ContainerState) StopActiveContainers(containerClient *client.Client) {
-	containers, err := containerClient.ContainerList(context.Background(), client.ContainerListOptions{})
+	containers, err := common.GetActiveContainerIds(containerClient)
 	if err != nil {
 		slog.Error("error listing containers: " + err.Error())
 		return
 	}
 
-	for _, container := range containers.Items {
-		if _, err := containerClient.ContainerStop(context.Background(), container.ID, client.ContainerStopOptions{}); err != nil {
+	for _, containerID := range containers {
+		if _, err := containerClient.ContainerStop(context.Background(), containerID, client.ContainerStopOptions{}); err != nil {
 			slog.Error("error stopping container: " + err.Error())
 			continue
 		}

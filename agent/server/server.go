@@ -39,7 +39,7 @@ func NewServer(shutdownSignal chan struct{}) *Server {
 	containerState := states.NewContainerState(dockerClient, conf.DockerImageName, conf.MinActive)
 
 	go func() {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(time.Duration(conf.ActiveContainerCheckInterval) * time.Second)
 		defer ticker.Stop()
 		for {
 			select {

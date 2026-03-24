@@ -4,6 +4,7 @@ go 1.24.5
 
 require (
 	github.com/docker/docker v28.5.2+incompatible
+	github.com/moby/moby/api v1.54.0
 	github.com/moby/moby/client v0.3.0
 	github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260317045805-5d9aa1174bf2
 	google.golang.org/grpc v1.79.2
@@ -22,7 +23,6 @@ require (
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
-	github.com/moby/moby/api v1.54.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect

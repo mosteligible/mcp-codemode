@@ -28,6 +28,7 @@ func main() {
 	serverErr := make(chan error, 1)
 	go func() {
 		grpcServer := grpc.NewServer()
+		defer grpcServer.GracefulStop()
 		pb.RegisterAgentServer(grpcServer, gserver)
 		slog.Info("Starting server on port: 30031")
 		if err := grpcServer.Serve(listen); err != nil {
@@ -41,7 +42,6 @@ func main() {
 		close(shutdownSignal)
 		gserver.HandleShutdown()
 	case err := <-serverErr:
-		close(shutdownSignal)
 		gserver.HandleShutdown()
 		log.Fatalf("Server error: %v", err)
 	}
