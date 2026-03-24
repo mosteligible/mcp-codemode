@@ -23,7 +23,8 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
-	gserver := server.NewServer()
+	shutdownSignal := make(chan struct{})
+	gserver := server.NewServer(shutdownSignal)
 	serverErr := make(chan error, 1)
 	go func() {
 		grpcServer := grpc.NewServer()
@@ -37,7 +38,10 @@ func main() {
 	select {
 	case <-ctx.Done():
 		slog.Info("Shutting down server...")
+		close(shutdownSignal)
+		gserver.HandleShutdown()
 	case err := <-serverErr:
+		close(shutdownSignal)
 		gserver.HandleShutdown()
 		log.Fatalf("Server error: %v", err)
 	}

@@ -21,7 +21,7 @@ type Server struct {
 	config          *config.Config
 }
 
-func NewServer() *Server {
+func NewServer(shutdownSignal chan struct{}) *Server {
 	slog.Info("starting server")
 	conf := config.NewConfig()
 	dockerClient, err := client.New(
@@ -41,9 +41,15 @@ func NewServer() *Server {
 	go func() {
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
-		for range ticker.C {
-			slog.Info("setting minimum active containers")
-			containerState.Containers.SetActiveContainers(dockerClient, conf.MinActive, conf.DockerImageName)
+		for {
+			select {
+			case <-ticker.C:
+				slog.Info("setting minimum active containers")
+				containerState.Containers.SetActiveContainers(dockerClient, conf.MinActive, conf.DockerImageName)
+			case <-shutdownSignal:
+				return
+			}
+
 		}
 	}()
 
