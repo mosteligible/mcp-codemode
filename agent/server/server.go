@@ -8,7 +8,7 @@ import (
 
 	"github.com/moby/moby/client"
 	"github.com/mosteligible/mcp-codemode/agent-proto/pb"
-	"github.com/mosteligible/mcp-codemode/agent/setup"
+	"github.com/mosteligible/mcp-codemode/agent/core"
 	"github.com/mosteligible/mcp-codemode/agent/states"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -27,7 +27,7 @@ func NewServer(containerImageName string, minActive int) *Server {
 		log.Fatal("could not create docker client: ", err.Error())
 	}
 
-	if !setup.CheckDockerAvailable(dockerClient) {
+	if !core.CheckDockerAvailable(dockerClient) {
 		log.Fatal("docker is not available, setup docker first: https://docs.docker.com/get-docker/")
 	}
 
