@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/mosteligible/mcp-codemode/agent-proto/pb"
+	"github.com/mosteligible/mcp-codemode/agent/core/interceptors"
 	"github.com/mosteligible/mcp-codemode/agent/server"
 	"google.golang.org/grpc"
 )
@@ -27,7 +28,9 @@ func main() {
 	gserver := server.NewServer(shutdownSignal)
 	serverErr := make(chan error, 1)
 	go func() {
-		grpcServer := grpc.NewServer()
+		grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
+			interceptors.UnaryInterceptorLogger,
+		))
 		defer grpcServer.GracefulStop()
 		pb.RegisterAgentServer(grpcServer, gserver)
 		slog.Info("Starting server on port: 30031")
