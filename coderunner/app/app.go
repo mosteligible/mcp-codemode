@@ -36,6 +36,7 @@ func NewApp(port string) *App {
 	if conf.RedisPassword != "" {
 		redisOpts.Password = conf.RedisPassword
 	}
+	slog.Info("starting redis client")
 	redisClient := redis.NewClient(redisOpts)
 
 	grpcConnections := make(map[string]*workerclient.WorkerClient)
@@ -46,6 +47,7 @@ func NewApp(port string) *App {
 			slog.Error("could not connect to worker at:" + host)
 			continue
 		}
+		slog.Info("connected to host: " + host)
 		grpcConnections[host] = conn
 	}
 

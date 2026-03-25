@@ -4,6 +4,9 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+
+	"github.com/joho/godotenv"
 )
 
 type Config struct {
@@ -15,13 +18,18 @@ type Config struct {
 	RedisUser     string
 	RedisPassword string
 	RedisDB       int
+
+	lock sync.Mutex
 }
 
 func (c *Config) ReloadConfig() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
 	c = NewConfig()
 }
 
 func NewConfig() *Config {
+	godotenv.Load()
 	remoteHosts := os.Getenv("REMOTE_HOSTS")
 	redisDb, err := strconv.Atoi(os.Getenv("REDIS_DB"))
 	if err != nil {
@@ -36,5 +44,6 @@ func NewConfig() *Config {
 		RedisUser:     os.Getenv("REDIS_USER"),
 		RedisPassword: os.Getenv("REDIS_PASSWORD"),
 		RedisDB:       redisDb,
+		lock:          sync.Mutex{},
 	}
 }

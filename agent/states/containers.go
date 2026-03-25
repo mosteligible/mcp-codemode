@@ -232,5 +232,6 @@ func (cs *ContainerState) StopActiveContainers(containerClient *client.Client) {
 			slog.Error("error stopping container: " + err.Error())
 			continue
 		}
+		slog.Info("stopped container: " + containerID)
 	}
 }

@@ -80,6 +80,7 @@ func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*p
 			Error:    err.Error(),
 		}, nil
 	}
+	slog.Info("processed Code", "result", result.Stdout, "error", result.Stderr, "exitCode", result.ExitCode)
 	return &pb.ExecuteCodeResponse{
 		ExitCode: int32(result.ExitCode),
 		Output:   result.Stdout,
