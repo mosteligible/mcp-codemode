@@ -41,3 +41,7 @@ func RunProxyRequest(target types.ProxyTarget, client *http.Client) (map[string]
 		"message": "Proxy request successful",
 	}, nil
 }
+
+func ValidateProxyRequest(req *http.Request) {
+
+}

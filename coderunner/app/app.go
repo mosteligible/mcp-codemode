@@ -69,7 +69,8 @@ func (a *App) init() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/run", a.RunCode)
-	mux.HandleFunc("/proxy", a.Proxy)
+	mux.HandleFunc("GET /proxy/{path}", a.Proxy)
+	mux.HandleFunc("POST /proxy/{path}", a.Proxy)
 	mux.HandleFunc("/status", a.status)
 	a.wrapper = middlewares.LoggingMiddleware(mux)
 }
@@ -110,8 +111,7 @@ func (a *App) Proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	path := r.URL.Path
-	target, err := common.GetUrlFromProxyPath(path, r.Method)
+	target, err := common.GetTarget(r)
 	if err != nil {
 		http.Error(w, "Invalid proxy path", http.StatusBadRequest)
 		return
@@ -121,6 +121,7 @@ func (a *App) Proxy(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid proxy ID", http.StatusUnauthorized)
 		return
 	}
+	target.Token = token.Val()
 
 	apiResponse, err := handlers.RunProxyRequest(target, a.requestClient)
 	if err != nil {

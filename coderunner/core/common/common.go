@@ -3,6 +3,7 @@ package common
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/mosteligible/mcp-codemode/agent-proto/pb"
@@ -19,7 +20,9 @@ func SanitizeMessage(message string, remoteHosts []string) string {
 	return message
 }
 
-func GetUrlFromProxyPath(path, method string) (types.ProxyTarget, error) {
+func GetTarget(r *http.Request) (types.ProxyTarget, error) {
+	path := r.URL.Path
+	method := r.Method
 	if path[0] != '/' {
 		return types.ProxyTarget{}, errors.New("invalid path")
 	}

@@ -12,8 +12,9 @@ type CommandOutput struct {
 }
 
 type ProxyTarget struct {
-	Url    string
-	Token  string
-	Base   string
-	Method string
+	Url      string
+	Token    string
+	Base     string
+	Method   string
+	PostBody map[string]interface{}
 }
