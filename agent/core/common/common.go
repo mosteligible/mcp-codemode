@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/moby/moby/client"
+	"github.com/mosteligible/mcp-codemode/agent/constants"
 )
 
 func GetEnvironmentVariable[T comparable](envVarName string, defaultValue T) T {
@@ -45,4 +46,13 @@ func GetActiveContainerIds(containerClient *client.Client) ([]string, error) {
 		ids[i] = container.ID
 	}
 	return ids, nil
+}
+
+func ValidateProgrammingLanguage(language string) error {
+	switch language {
+	case constants.ProgrammingLanguagePython, constants.ProgrammingLanguageBash:
+		return nil
+	default:
+		return fmt.Errorf("unsupported programming language: %s", language)
+	}
 }

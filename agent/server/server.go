@@ -10,6 +10,7 @@ import (
 	"github.com/mosteligible/mcp-codemode/agent-proto/pb"
 	"github.com/mosteligible/mcp-codemode/agent/config"
 	"github.com/mosteligible/mcp-codemode/agent/core"
+	"github.com/mosteligible/mcp-codemode/agent/core/common"
 	"github.com/mosteligible/mcp-codemode/agent/states"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -68,6 +69,14 @@ func (s *Server) Status(ctx context.Context, in *emptypb.Empty) (*pb.HealthStatu
 }
 
 func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*pb.ExecuteCodeResponse, error) {
+	if err := common.ValidateProgrammingLanguage(in.Language); err != nil {
+		return &pb.ExecuteCodeResponse{
+			ExitCode: 2,
+			Output:   "",
+			Error:    err.Error(),
+		}, nil
+	}
+
 	const maxExecutionTime = 30 * time.Second
 	timeoutContext, cancel := context.WithTimeout(ctx, maxExecutionTime)
 	defer cancel()

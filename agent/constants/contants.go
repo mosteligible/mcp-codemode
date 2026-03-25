@@ -6,4 +6,7 @@ const (
 	DefaultWorkerPort             = ":30031"
 	DefaultMinActive              = 2
 	DefaultContainerCheckInterval = 30 // seconds
+
+	ProgrammingLanguagePython = "python"
+	ProgrammingLanguageBash   = "bash"
 )
