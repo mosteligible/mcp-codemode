@@ -71,9 +71,7 @@ func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*p
 	const maxExecutionTime = 30 * time.Second
 	timeoutContext, cancel := context.WithTimeout(ctx, maxExecutionTime)
 	defer cancel()
-	slog.Info(ctx.Value(
-		"corr-id").(string) + " - executing code with timeout: " + maxExecutionTime.String() + "\n" + "code: " + in.Instruction + "\nlanguage: " + in.Language,
-	)
+	slog.Info("received code", "instruction", in.Instruction, "language", in.Language)
 	result, err := s.containerState.Containers.Execute(timeoutContext, s.containerClient, in.Instruction)
 	if err != nil {
 		return &pb.ExecuteCodeResponse{
