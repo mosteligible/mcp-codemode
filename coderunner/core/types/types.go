@@ -18,3 +18,7 @@ type ProxyTarget struct {
 	Method   string
 	PostBody map[string]interface{}
 }
+
+func (t ProxyTarget) String() string {
+	return "ProxyTarget{Base: " + t.Base + ", Url: " + t.Url + ", Method: " + t.Method + "}"
+}

@@ -2,7 +2,9 @@ package common
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -20,29 +22,44 @@ func SanitizeMessage(message string, remoteHosts []string) string {
 	return message
 }
 
-func GetTarget(r *http.Request) (types.ProxyTarget, error) {
-	path := r.URL.Path
+func GetTarget(r *http.Request, corrID string) (types.ProxyTarget, error) {
+	path := r.PathValue("path")
+	// path follows format: /github|graph/{endpoint} - endpoint is follow-through path
+	// to be appended to base url of target API, for example: /github/repos/octocat/hello-world
 	method := r.Method
-	if path[0] != '/' {
-		return types.ProxyTarget{}, errors.New("invalid path")
+	slog.Info("path: "+path+" - "+method, "correlation_id", corrID)
+	if path[0] == '/' {
+		path = path[1:]
 	}
-	parts := strings.Split(path[1:], "/")
+	parts := strings.Split(path, "/")
+	var postBody map[string]interface{}
+	var target types.ProxyTarget
+	if method == http.MethodPost {
+		err := json.NewDecoder(r.Body).Decode(&postBody)
+		if err != nil {
+			return types.ProxyTarget{}, errors.New("invalid post body - correlation_id: " + corrID)
+		}
+		target.PostBody = postBody
+	}
 	switch parts[0] {
 	case constants.GITHUB_BASE:
-		return types.ProxyTarget{
+		target = types.ProxyTarget{
 			Base:   constants.GITHUB_BASE,
-			Url:    constants.GITHUB_BASE_URL,
+			Url:    constants.GITHUB_BASE_URL + "/" + strings.Join(parts[1:], "/"),
 			Method: method,
-		}, nil
+		}
 	case constants.MICROSOFT_GRAPH_BASE:
-		return types.ProxyTarget{
-			Base:   constants.MICROSOFT_GRAPH_BASE,
-			Url:    constants.MICROSOFT_GRAPH_BASE_URL,
-			Method: method,
-		}, nil
+		target = types.ProxyTarget{
+			Base:     constants.MICROSOFT_GRAPH_BASE,
+			Url:      constants.MICROSOFT_GRAPH_BASE_URL + "/" + strings.Join(parts[1:], "/"),
+			Method:   method,
+			PostBody: postBody,
+		}
 	default:
-		return types.ProxyTarget{}, errors.New("unknown path")
+		return types.ProxyTarget{}, errors.New("unknown path - correlation_id: " + corrID)
 	}
+
+	return target, nil
 }
 
 func ExecuteCommand(connection *workerclient.WorkerClient, instruction, language string) types.CommandOutput {
@@ -67,4 +84,8 @@ func ExecuteCommand(connection *workerclient.WorkerClient, instruction, language
 	output.Output = result.Output
 
 	return output
+}
+
+func GetErrorResponseMessage(msg string) map[string]string {
+	return map[string]string{"message": msg}
 }

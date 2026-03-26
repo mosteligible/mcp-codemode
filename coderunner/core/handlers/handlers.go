@@ -20,9 +20,10 @@ func getHeadersForEndpoint(target types.ProxyTarget) map[string]string {
 	}
 }
 
-func RunProxyRequest(target types.ProxyTarget, client *http.Client) (map[string]interface{}, error) {
+func RunProxyRequest(target types.ProxyTarget, client *http.Client, correlationID string) (map[string]interface{}, error) {
 	headers := getHeadersForEndpoint(target)
 
+	slog.Info("sending proxy request", "url", target.String(), "correlation_id", correlationID)
 	response, err := common.SendRequest(
 		client,
 		target.Url,
@@ -32,7 +33,7 @@ func RunProxyRequest(target types.ProxyTarget, client *http.Client) (map[string]
 	)
 
 	if err != nil {
-		slog.Error("failed sending request " + err.Error())
+		slog.Error("failed sending request "+err.Error(), "correlation_id", correlationID)
 		return nil, err
 	}
 	defer response.Body.Close()
@@ -40,8 +41,4 @@ func RunProxyRequest(target types.ProxyTarget, client *http.Client) (map[string]
 	return map[string]interface{}{
 		"message": "Proxy request successful",
 	}, nil
-}
-
-func ValidateProxyRequest(req *http.Request) {
-
 }

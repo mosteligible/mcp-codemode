@@ -3,6 +3,7 @@ module github.com/mosteligible/mcp-codemode/coderunner
 go 1.24.5
 
 require (
+	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260317041413-e40d1d28b312
 	github.com/redis/go-redis/v9 v9.18.0

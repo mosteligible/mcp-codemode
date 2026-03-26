@@ -109,7 +109,7 @@ func TestRunProxyRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			target, client := tt.setup(t)
-			got, gotErr := RunProxyRequest(target, client)
+			got, gotErr := RunProxyRequest(target, client, "test-correlation-id")
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("RunProxyRequest() failed: %v", gotErr)

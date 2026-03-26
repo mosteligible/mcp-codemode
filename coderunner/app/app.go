@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mosteligible/mcp-codemode/coderunner/config"
 	"github.com/mosteligible/mcp-codemode/coderunner/constants"
 	"github.com/mosteligible/mcp-codemode/coderunner/core/common"
@@ -69,8 +70,8 @@ func (a *App) init() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/run", a.RunCode)
-	mux.HandleFunc("GET /proxy/{path}", a.Proxy)
-	mux.HandleFunc("POST /proxy/{path}", a.Proxy)
+	mux.HandleFunc("GET /proxy/{path...}", a.Proxy)
+	mux.HandleFunc("POST /proxy/{path...}", a.Proxy)
 	mux.HandleFunc("/status", a.status)
 	a.wrapper = middlewares.LoggingMiddleware(mux)
 }
@@ -104,6 +105,7 @@ func (a *App) RunCode(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) Proxy(w http.ResponseWriter, r *http.Request) {
+	correlationID := uuid.New().String()
 	proxyId := r.Header.Get(constants.PROXY_HEADER_KEY)
 	proxyId = strings.TrimSpace(proxyId)
 	if proxyId == "" {
@@ -111,21 +113,30 @@ func (a *App) Proxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	target, err := common.GetTarget(r)
+	target, err := common.GetTarget(r, correlationID)
 	if err != nil {
 		http.Error(w, "Invalid proxy path", http.StatusBadRequest)
 		return
 	}
+	slog.Info(
+		"sending proxy request",
+		"url", target.Url,
+		"method", target.Method,
+		"correlation_id", correlationID,
+	)
+
 	token := a.redisClient.Get(r.Context(), proxyId)
 	if token.Err() != nil {
-		http.Error(w, "Invalid proxy ID", http.StatusUnauthorized)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(common.GetErrorResponseMessage("invalid proxy id"))
 		return
 	}
 	target.Token = token.Val()
 
-	apiResponse, err := handlers.RunProxyRequest(target, a.requestClient)
+	apiResponse, err := handlers.RunProxyRequest(target, a.requestClient, correlationID)
 	if err != nil {
-		http.Error(w, "Error processing proxy request", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(common.GetErrorResponseMessage("error processing proxy request"))
 		return
 	}
 
