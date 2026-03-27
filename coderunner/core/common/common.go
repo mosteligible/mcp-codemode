@@ -43,23 +43,18 @@ func GetTarget(r *http.Request, corrID string) (types.ProxyTarget, error) {
 	}
 	switch parts[0] {
 	case constants.GITHUB_BASE:
-		target = types.ProxyTarget{
-			Base:   constants.GITHUB_BASE,
-			Url:    constants.GITHUB_BASE_URL + "/" + strings.Join(parts[1:], "/"),
-			Method: method,
-		}
+		target.Base = constants.GITHUB_BASE
+		target.Method = method
+		target.Url = constants.GITHUB_BASE_URL + "/" + strings.Join(parts[1:], "/")
+		return target, nil
 	case constants.MICROSOFT_GRAPH_BASE:
-		target = types.ProxyTarget{
-			Base:     constants.MICROSOFT_GRAPH_BASE,
-			Url:      constants.MICROSOFT_GRAPH_BASE_URL + "/" + strings.Join(parts[1:], "/"),
-			Method:   method,
-			PostBody: postBody,
-		}
+		target.Base = constants.MICROSOFT_GRAPH_BASE
+		target.Method = method
+		target.Url = constants.MICROSOFT_GRAPH_BASE_URL + "/" + strings.Join(parts[1:], "/")
+		return target, nil
 	default:
 		return types.ProxyTarget{}, errors.New("unknown path - correlation_id: " + corrID)
 	}
-
-	return target, nil
 }
 
 func ExecuteCommand(connection *workerclient.WorkerClient, instruction, language string) types.CommandOutput {

@@ -2,6 +2,7 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"math/rand"
 	"net/http"
@@ -115,7 +116,10 @@ func (a *App) Proxy(w http.ResponseWriter, r *http.Request) {
 
 	target, err := common.GetTarget(r, correlationID)
 	if err != nil {
-		http.Error(w, "Invalid proxy path", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(common.GetErrorResponseMessage(
+			fmt.Sprintf("Invalid error path - %s", err.Error()),
+		))
 		return
 	}
 	slog.Info(

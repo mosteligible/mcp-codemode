@@ -30,6 +30,7 @@ func RunProxyRequest(target types.ProxyTarget, client *http.Client, correlationI
 		headers,
 		target.Method,
 		nil,
+		correlationID,
 	)
 
 	if err != nil {
