@@ -99,5 +99,13 @@ func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*p
 
 func (s *Server) HandleShutdown() {
 	slog.Info("shutting down server, cleaning up containers...")
-	s.containerState.StopActiveContainers(s.containerClient)
+	for _, containerID := range s.containerState.Containers.Ids {
+		_, err := s.containerClient.ContainerStop(context.Background(), containerID, client.ContainerStopOptions{Timeout: nil})
+		if err != nil {
+			slog.Error("error stopping container " + containerID + ": " + err.Error())
+		} else {
+			slog.Info("stopped container " + containerID)
+		}
+	}
+	slog.Info("all containers cleaned up, shutting down server")
 }

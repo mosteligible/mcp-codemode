@@ -10,13 +10,15 @@ import (
 	"syscall"
 
 	"github.com/mosteligible/mcp-codemode/agent-proto/pb"
+	"github.com/mosteligible/mcp-codemode/agent/config"
 	"github.com/mosteligible/mcp-codemode/agent/core/interceptors"
 	"github.com/mosteligible/mcp-codemode/agent/server"
 	"google.golang.org/grpc"
 )
 
 func main() {
-	listen, err := net.Listen("tcp", ":30031")
+	conf := config.NewConfig()
+	listen, err := net.Listen("tcp", conf.WorkerPort)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -33,7 +35,7 @@ func main() {
 		))
 		defer grpcServer.GracefulStop()
 		pb.RegisterAgentServer(grpcServer, gserver)
-		slog.Info("Starting server on port: 30031")
+		slog.Info("Starting server on port " + conf.WorkerPort)
 		if err := grpcServer.Serve(listen); err != nil {
 			serverErr <- err
 		}

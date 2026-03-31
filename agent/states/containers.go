@@ -27,14 +27,14 @@ var bufferPool = sync.Pool{
 
 type ContainerId string
 type ActiveContainers struct {
-	ids          []string
+	Ids          []string
 	containerMap map[string]struct{}
 	lock         sync.RWMutex
 }
 
 func NewActiveContainers(containerClient *client.Client, minActive int, imageName string) *ActiveContainers {
 	ac := ActiveContainers{
-		ids:          []string{},
+		Ids:          []string{},
 		containerMap: make(map[string]struct{}),
 	}
 	ac.SetActiveContainers(containerClient, minActive, imageName)
@@ -45,15 +45,15 @@ func NewActiveContainers(containerClient *client.Client, minActive int, imageNam
 func (c *ActiveContainers) Add(id ContainerId) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.ids = append(c.ids, string(id))
+	c.Ids = append(c.Ids, string(id))
 }
 
 func (c *ActiveContainers) Remove(id ContainerId) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	for i, v := range c.ids {
+	for i, v := range c.Ids {
 		if v == string(id) {
-			c.ids = append(c.ids[:i], c.ids[i+1:]...)
+			c.Ids = append(c.Ids[:i], c.Ids[i+1:]...)
 			break
 		}
 	}
@@ -62,18 +62,18 @@ func (c *ActiveContainers) Remove(id ContainerId) {
 func (c *ActiveContainers) Count() int {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	return len(c.ids)
+	return len(c.Ids)
 }
 
 func (c *ActiveContainers) Execute(ctx context.Context, containerClient *client.Client, instruction string) (types.ExecuteResult, error) {
 	// get random id from active containers
 	c.lock.RLock()
-	if len(c.ids) == 0 {
+	if len(c.Ids) == 0 {
 		c.lock.RUnlock()
 		return types.ExecuteResult{}, fmt.Errorf("no active containers available")
 	}
-	randindex := rand.Intn(len(c.ids))
-	containerID := c.ids[randindex]
+	randindex := rand.Intn(len(c.Ids))
+	containerID := c.Ids[randindex]
 	c.lock.RUnlock()
 
 	result, err := containerClient.ExecCreate(
@@ -176,7 +176,7 @@ func (c *ActiveContainers) SetActiveContainers(containerClient *client.Client, m
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.ids = currentContainers
+	c.Ids = currentContainers
 	c.containerMap = containerMap
 }
 
