@@ -18,6 +18,7 @@ import (
 	workerclient "github.com/mosteligible/mcp-codemode/coderunner/core/worker_client"
 	"github.com/mosteligible/mcp-codemode/coderunner/middlewares"
 	"github.com/redis/go-redis/v9"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type App struct {
@@ -83,7 +84,29 @@ func (a *App) Start() error {
 	)
 }
 
+func (a *App) getGrpcConnection() (*workerclient.WorkerClient, error) {
+	if len(a.grpcConnections) == 0 {
+		return nil, fmt.Errorf("no available worker connections")
+	}
+	randIndex := rand.Intn(len(a.grpcConnections))
+	conn := a.grpcConnections[a.appConfig.RemoteHosts[randIndex]]
+	return conn, nil
+}
+
 func (a *App) status(w http.ResponseWriter, r *http.Request) {
+	res, err := a.getGrpcConnection()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "no available worker connections"})
+		return
+	}
+
+	_, err = res.Client.Status(r.Context(), &emptypb.Empty{})
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "error connecting to worker"})
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]int16{"status": 200})
 }
