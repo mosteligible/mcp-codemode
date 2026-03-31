@@ -1,13 +1,17 @@
 package main
 
 import (
+	"log"
 	"log/slog"
 
 	"github.com/mosteligible/mcp-codemode/coderunner/app"
 )
 
 func main() {
-	app := app.NewApp(":8080")
+	codeRunnerApp := app.NewApp(":8080")
 	slog.Info("starting server on port " + ":8080")
-	app.Start()
+	go codeRunnerApp.Start()
+	logger := slog.New(slog.NewTextHandler(log.Writer(), nil))
+	mcpApp := app.NewMcpApp(logger)
+	mcpApp.Start()
 }
