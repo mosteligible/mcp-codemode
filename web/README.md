@@ -13,7 +13,7 @@ Next.js App Router interface for chatting with an LLM via server-side OpenAI cal
 ## Prerequisites
 
 - Node.js 20+
-- npm
+- pnpm 10+
 - A running MCP server (for local development this repo provides `pyrunner`)
 - OpenAI API key
 
@@ -44,8 +44,8 @@ MCP_SERVER_URLS=http://localhost:8000/mcp
 ## Run
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Open `http://localhost:3000`.
@@ -62,3 +62,4 @@ Open `http://localhost:3000`.
 
 - Threads are intentionally non-persistent in v1. They reset when the Next.js process restarts.
 - MCP tools are discovered server-side from configured endpoints.
+- The web app is pinned to pnpm via the `packageManager` field in `package.json`.
