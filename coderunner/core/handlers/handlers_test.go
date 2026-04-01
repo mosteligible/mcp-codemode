@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -67,6 +69,9 @@ func TestRunProxyRequest(t *testing.T) {
 						t.Errorf("expected Authorization header %q, got %q", "token ghp_123", got)
 					}
 					w.WriteHeader(http.StatusOK)
+					if err := json.NewEncoder(w).Encode(map[string]interface{}{"message": "Proxy request successful"}); err != nil {
+						t.Fatalf("failed to encode response: %v", err)
+					}
 				}))
 				t.Cleanup(server.Close)
 
@@ -109,7 +114,7 @@ func TestRunProxyRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			target, client := tt.setup(t)
-			got, gotErr := RunProxyRequest(target, client, "test-correlation-id")
+			got, gotErr := RunProxyRequest(context.Background(), target, client, "test-correlation-id")
 			if gotErr != nil {
 				if !tt.wantErr {
 					t.Errorf("RunProxyRequest() failed: %v", gotErr)

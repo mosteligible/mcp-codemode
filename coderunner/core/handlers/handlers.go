@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 
@@ -20,11 +22,12 @@ func getHeadersForEndpoint(target types.ProxyTarget) map[string]string {
 	}
 }
 
-func RunProxyRequest(target types.ProxyTarget, client *http.Client, correlationID string) (map[string]interface{}, error) {
+func RunProxyRequest(ctx context.Context, target types.ProxyTarget, client *http.Client, correlationID string) (map[string]interface{}, error) {
 	headers := getHeadersForEndpoint(target)
 
 	slog.Info("sending proxy request", "url", target.String(), "correlation_id", correlationID)
 	response, err := common.SendRequest(
+		ctx,
 		client,
 		target.Url,
 		headers,
@@ -39,7 +42,11 @@ func RunProxyRequest(target types.ProxyTarget, client *http.Client, correlationI
 	}
 	defer response.Body.Close()
 
-	return map[string]interface{}{
-		"message": "Proxy request successful",
-	}, nil
+	retval := make(map[string]interface{})
+	err = json.NewDecoder(response.Body).Decode(&retval)
+	if err != nil {
+		slog.Error("failed decoding response "+err.Error(), "correlation_id", correlationID)
+		return nil, err
+	}
+	return retval, nil
 }

@@ -2,6 +2,7 @@ package common
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -10,6 +11,7 @@ import (
 )
 
 func SendRequest(
+	ctx context.Context,
 	client *http.Client,
 	url string,
 	headers map[string]string,
@@ -22,7 +24,7 @@ func SendRequest(
 	var err error
 	switch method {
 	case http.MethodGet:
-		req, err = http.NewRequest(method, url, nil)
+		req, err = http.NewRequestWithContext(ctx, method, url, nil)
 	case http.MethodPost:
 		var pb []byte
 		if postBody != nil {
@@ -40,9 +42,9 @@ func SendRequest(
 	}
 
 	slog.Info("starting request to: " + url + " correlation_id: " + correlationID)
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
+	// for k, v := range headers {
+	// 	req.Header.Set(k, v)
+	// }
 	response, err = client.Do(req)
 	if err != nil {
 		slog.Error("error sending request: " + err.Error() + " correlation_id: " + correlationID)

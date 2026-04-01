@@ -60,7 +60,8 @@ func NewApp(port string) *App {
 		appConfig:   conf,
 		redisClient: redisClient,
 		requestClient: &http.Client{
-			Timeout: 180 * time.Second,
+			Timeout:   180 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
 		},
 		grpcConnections: grpcConnections,
 	}
@@ -168,7 +169,7 @@ func (a *App) Proxy(w http.ResponseWriter, r *http.Request) {
 	}
 	target.Token = token.Val()
 
-	apiResponse, err := handlers.RunProxyRequest(target, a.requestClient, correlationID)
+	apiResponse, err := handlers.RunProxyRequest(r.Context(), target, a.requestClient, correlationID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(common.GetErrorResponseMessage("error processing proxy request"))
