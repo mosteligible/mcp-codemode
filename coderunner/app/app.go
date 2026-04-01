@@ -18,6 +18,7 @@ import (
 	workerclient "github.com/mosteligible/mcp-codemode/coderunner/core/worker_client"
 	"github.com/mosteligible/mcp-codemode/coderunner/middlewares"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -75,7 +76,14 @@ func (a *App) init() {
 	mux.HandleFunc("GET /proxy/{path...}", a.Proxy)
 	mux.HandleFunc("POST /proxy/{path...}", a.Proxy)
 	mux.HandleFunc("/status", a.status)
-	a.wrapper = middlewares.LoggingMiddleware(mux)
+	handler := otelhttp.NewHandler(
+		mux,
+		"http.server",
+		otelhttp.WithSpanNameFormatter(func(_ string, r *http.Request) string {
+			return r.Method + " " + r.Pattern
+		}),
+	)
+	a.wrapper = middlewares.LoggingMiddleware(handler)
 }
 
 func (a *App) Start() error {
