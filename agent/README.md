@@ -1,83 +1,80 @@
 # MCP Codemode Agent
 
-The MCP Codemode Agent is a lightweight gRPC server designed to manage containers and execute tasks. This guide will help you install and configure the agent on your virtual machine.
+The MCP Codemode Agent is a lightweight gRPC service that keeps a warm pool of Docker containers available for code execution. It is intended to run as a background host service on Linux.
 
-## Installation
+## Production Installation
 
-1. **Install the Agent**
-
-   Use the following command to install the agent:
-
-   ```bash
-   go install github.com/mosteligible/mcp-codemode/agent@latest
-   ```
-
-   By default, the binary will be installed in the `bin` folder of your Go workspace (e.g., `$HOME/go/bin`). Ensure this folder is added to your `PATH` environment variable:
-
-   ```bash
-   export PATH=$PATH:$HOME/go/bin
-   ```
-
-   Alternatively, you can specify a custom installation path by setting the `GOBIN` environment variable before running the `go install` command:
-
-   ```bash
-   export GOBIN=/desired/path/to/install
-   go install github.com/mosteligible/mcp-codemode/agent@latest
-   ```
-
-   The binary will then be installed in the specified path.
-
-2. **Set Environment Variables**
-
-   The agent requires certain environment variables to be set for proper configuration. Below are the required variables:
-
-   - `DOCKER_API_VERSION`: The Docker API version to use (default: `1.41`).
-   - `DOCKER_IMAGE_NAME`: The default Docker image name.
-   - `WORKER_PORT`: The port for worker communication (default: `8080`).
-   - `MIN_ACTIVE`: Minimum number of active containers (default: `1`).
-   - `ACTIVE_CONTAINER_CHECK_INTERVAL`: Interval (in seconds) to check active containers (default: `60`).
-
-   Example:
-
-   ```bash
-   export DOCKER_API_VERSION=1.41
-   export DOCKER_IMAGE_NAME=my-docker-image
-   export WORKER_PORT=8080
-   export MIN_ACTIVE=1
-   export ACTIVE_CONTAINER_CHECK_INTERVAL=60
-   ```
-
-3. **Run the Agent**
-
-   Navigate to the folder where the binary is installed (e.g., `$HOME/go/bin` or the custom path set in `GOBIN`) and run the agent:
-
-   ```bash
-   cd $HOME/go/bin
-   ./agent
-   ```
-
-   The agent will start a gRPC server on port `30031` by default.
-
-## Next Steps
-
-### Multi-Language Support
-
-To enable multi-language support, the agent will need to be extended to handle additional runtime environments. This will involve:
-
-- Adding support for custom containers.
-- Allowing users to specify runtime environments dynamically.
-
-### Private Container Registries
-
-To pull images from private container registries, you will need to provide an API key. This can be achieved by:
-
-1. Adding a new environment variable `CONTAINER_REGISTRY_API_KEY`.
-2. Updating the agent to use this key when authenticating with the registry.
-
-Example:
+Use the installer in this directory:
 
 ```bash
-export CONTAINER_REGISTRY_API_KEY=my-api-key
+sudo ./setup.sh
 ```
 
-Stay tuned for updates as these features are implemented.
+The installer does the following:
+
+1. Checks that Linux, `systemd`, and the Docker daemon are available.
+2. Downloads the latest GitHub Release asset for this repository.
+3. Falls back to `go install github.com/mosteligible/mcp-codemode/agent@latest` if no matching release asset exists.
+4. Installs the binary to `/usr/local/bin/mcp-codemode-agent`.
+5. Creates a dedicated service account and a `systemd` unit.
+6. Enables and starts the background service.
+
+The installer targets these release assets:
+
+- `agent_linux_amd64.tar.gz`
+- `agent_linux_arm64.tar.gz`
+
+## Host Requirements
+
+- Linux host with `systemd`
+- Docker daemon already installed and running
+- `curl` or `wget`
+- `tar`
+- `go` only if the installer needs to use the fallback path
+
+The agent currently relies on the host Docker runtime configuration. If you require gVisor isolation, configure Docker so the relevant runtime is already available before installing the service.
+
+## Service Layout
+
+- Binary: `/usr/local/bin/mcp-codemode-agent`
+- Service: `mcp-codemode-agent`
+- Environment file: `/etc/mcp-codemode-agent/agent.env`
+- State directory: `/var/lib/mcp-codemode-agent`
+
+Useful commands:
+
+```bash
+systemctl status mcp-codemode-agent
+journalctl -u mcp-codemode-agent -f
+systemctl restart mcp-codemode-agent
+```
+
+## Configuration
+
+The installer writes a managed environment file at `/etc/mcp-codemode-agent/agent.env`.
+
+Supported settings:
+
+- `DOCKER_API_VERSION` default: `1.40`
+- `DOCKER_IMAGE_NAME` default: `python:3.14-slim`
+- `WORKER_PORT` default: `:30031`
+- `MIN_ACTIVE` default: `2`
+- `ACTIVE_CONTAINER_CHECK_INTERVAL` default: `30`
+
+Update the environment file and restart the service when you need to change runtime settings.
+
+## Release Automation
+
+The repository publishes agent binaries from GitHub Actions on every push to `main`. Each run creates a new GitHub Release and marks it as the latest release.
+
+The installer uses the latest release by default, which gives you a stable install path while preserving rollback history in GitHub Releases.
+
+## Manual Development Install
+
+If you need a local developer install without `systemd`, you can still use:
+
+```bash
+go install github.com/mosteligible/mcp-codemode/agent@latest
+```
+
+That path is intended for development, not for long-running production deployment.
