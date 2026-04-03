@@ -131,7 +131,7 @@ func (a *App) RunCode(w http.ResponseWriter, r *http.Request) {
 
 	randIndex := rand.Intn(len(a.grpcConnections))
 	conn := a.grpcConnections[a.appConfig.RemoteHosts[randIndex]]
-	output := common.ExecuteCommand(conn, codeRequest.Code, codeRequest.Language)
+	output := common.ExecuteCommand(r.Context(), conn, codeRequest.Code, codeRequest.Language)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(output)
 
