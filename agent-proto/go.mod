@@ -1,6 +1,6 @@
 module github.com/mosteligible/mcp-codemode/agent-proto
 
-go 1.24.5
+go 1.25.0
 
 require (
 	google.golang.org/grpc v1.79.2

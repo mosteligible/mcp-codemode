@@ -129,8 +129,11 @@ func (a *App) RunCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	randIndex := rand.Intn(len(a.grpcConnections))
-	conn := a.grpcConnections[a.appConfig.RemoteHosts[randIndex]]
+	conn, err := a.getGrpcConnection()
+	if err != nil {
+		http.Error(w, "No available worker connections", http.StatusInternalServerError)
+		return
+	}
 	output := common.ExecuteCommand(r.Context(), conn, codeRequest.Code, codeRequest.Language)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(output)
