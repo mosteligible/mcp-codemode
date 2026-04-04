@@ -134,7 +134,6 @@ func (a *App) RunCode(w http.ResponseWriter, r *http.Request) {
 	output := common.ExecuteCommand(r.Context(), conn, codeRequest.Code, codeRequest.Language)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(output)
-
 }
 
 func (a *App) Proxy(w http.ResponseWriter, r *http.Request) {
