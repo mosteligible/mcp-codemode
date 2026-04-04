@@ -25,4 +25,5 @@ message ExecuteCodeResponse {
 service Agent {
     rpc Status(google.protobuf.Empty) returns (HealthStatus);
     rpc ExecuteCode(ExecuteCodeRequest) returns (ExecuteCodeResponse);
+    rpc ExecuteCodeFresh(ExecuteCodeRequest) returns (ExecuteCodeResponse);
 }

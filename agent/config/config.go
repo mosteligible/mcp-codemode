@@ -1,6 +1,8 @@
 package config
 
 import (
+	"log"
+
 	"github.com/mosteligible/mcp-codemode/agent/constants"
 	"github.com/mosteligible/mcp-codemode/agent/core/common"
 )
@@ -14,6 +16,15 @@ type Config struct {
 }
 
 func NewConfig() *Config {
+	otelHeader := common.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_HEADERS", "")
+	if otelHeader == "" {
+		log.Fatalf("OTEL_EXPORTER_OTLP_HEADERS not set in environment")
+	}
+	otelEndpoint := common.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+	if otelEndpoint == "" {
+		log.Fatalf("OTEL_EXPORTER_OTLP_ENDPOINT not set in environment")
+	}
+
 	return &Config{
 		DockerApiVersion:             common.GetEnvironmentVariable("DOCKER_API_VERSION", constants.DefaultDockerApiVersion),
 		DockerImageName:              common.GetEnvironmentVariable("DOCKER_IMAGE_NAME", constants.DefaultDockerImageName),
