@@ -14,6 +14,7 @@ import (
 	"github.com/mosteligible/mcp-codemode/agent/core/interceptors"
 	"github.com/mosteligible/mcp-codemode/agent/server"
 	"github.com/mosteligible/mcp-codemode/agent/telemetry"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 )
 
@@ -40,7 +41,7 @@ func main() {
 	go func() {
 		grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
 			interceptors.UnaryInterceptorLogger,
-		))
+		), grpc.StatsHandler(otelgrpc.NewServerHandler()))
 		defer grpcServer.GracefulStop()
 		pb.RegisterAgentServer(grpcServer, gserver)
 		slog.Info("Starting server on port " + conf.WorkerPort)
