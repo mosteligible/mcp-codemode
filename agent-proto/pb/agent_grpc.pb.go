@@ -8,7 +8,6 @@ package pb
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -21,8 +20,9 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Agent_Status_FullMethodName      = "/pb.Agent/Status"
-	Agent_ExecuteCode_FullMethodName = "/pb.Agent/ExecuteCode"
+	Agent_Status_FullMethodName           = "/pb.Agent/Status"
+	Agent_ExecuteCode_FullMethodName      = "/pb.Agent/ExecuteCode"
+	Agent_ExecuteCodeFresh_FullMethodName = "/pb.Agent/ExecuteCodeFresh"
 )
 
 // AgentClient is the client API for Agent service.
@@ -31,6 +31,7 @@ const (
 type AgentClient interface {
 	Status(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*HealthStatus, error)
 	ExecuteCode(ctx context.Context, in *ExecuteCodeRequest, opts ...grpc.CallOption) (*ExecuteCodeResponse, error)
+	ExecuteCodeFresh(ctx context.Context, in *ExecuteCodeRequest, opts ...grpc.CallOption) (*ExecuteCodeResponse, error)
 }
 
 type agentClient struct {
@@ -61,12 +62,23 @@ func (c *agentClient) ExecuteCode(ctx context.Context, in *ExecuteCodeRequest, o
 	return out, nil
 }
 
+func (c *agentClient) ExecuteCodeFresh(ctx context.Context, in *ExecuteCodeRequest, opts ...grpc.CallOption) (*ExecuteCodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ExecuteCodeResponse)
+	err := c.cc.Invoke(ctx, Agent_ExecuteCodeFresh_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AgentServer is the server API for Agent service.
 // All implementations must embed UnimplementedAgentServer
 // for forward compatibility.
 type AgentServer interface {
 	Status(context.Context, *emptypb.Empty) (*HealthStatus, error)
 	ExecuteCode(context.Context, *ExecuteCodeRequest) (*ExecuteCodeResponse, error)
+	ExecuteCodeFresh(context.Context, *ExecuteCodeRequest) (*ExecuteCodeResponse, error)
 	mustEmbedUnimplementedAgentServer()
 }
 
@@ -82,6 +94,9 @@ func (UnimplementedAgentServer) Status(context.Context, *emptypb.Empty) (*Health
 }
 func (UnimplementedAgentServer) ExecuteCode(context.Context, *ExecuteCodeRequest) (*ExecuteCodeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ExecuteCode not implemented")
+}
+func (UnimplementedAgentServer) ExecuteCodeFresh(context.Context, *ExecuteCodeRequest) (*ExecuteCodeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ExecuteCodeFresh not implemented")
 }
 func (UnimplementedAgentServer) mustEmbedUnimplementedAgentServer() {}
 func (UnimplementedAgentServer) testEmbeddedByValue()               {}
@@ -140,6 +155,24 @@ func _Agent_ExecuteCode_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Agent_ExecuteCodeFresh_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExecuteCodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AgentServer).ExecuteCodeFresh(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Agent_ExecuteCodeFresh_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AgentServer).ExecuteCodeFresh(ctx, req.(*ExecuteCodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Agent_ServiceDesc is the grpc.ServiceDesc for Agent service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -154,6 +187,10 @@ var Agent_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExecuteCode",
 			Handler:    _Agent_ExecuteCode_Handler,
+		},
+		{
+			MethodName: "ExecuteCodeFresh",
+			Handler:    _Agent_ExecuteCodeFresh_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
