@@ -9,6 +9,7 @@ option go_package = "github.com/mosteligible/mcp-codemode/agent/pb";
 message ExecuteCodeRequest {
     string instruction = 1;
     string language = 2;
+    string session_id = 3;
 }
 
 message HealthStatus {

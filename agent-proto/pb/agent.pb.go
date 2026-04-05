@@ -26,6 +26,7 @@ type ExecuteCodeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Instruction   string                 `protobuf:"bytes,1,opt,name=instruction,proto3" json:"instruction,omitempty"`
 	Language      string                 `protobuf:"bytes,2,opt,name=language,proto3" json:"language,omitempty"`
+	SessionId     string                 `protobuf:"bytes,3,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -70,6 +71,13 @@ func (x *ExecuteCodeRequest) GetInstruction() string {
 func (x *ExecuteCodeRequest) GetLanguage() string {
 	if x != nil {
 		return x.Language
+	}
+	return ""
+}
+
+func (x *ExecuteCodeRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
 	}
 	return ""
 }
@@ -190,10 +198,12 @@ var File_agent_proto protoreflect.FileDescriptor
 
 const file_agent_proto_rawDesc = "" +
 	"\n" +
-	"\vagent.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\"R\n" +
+	"\vagent.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\"q\n" +
 	"\x12ExecuteCodeRequest\x12 \n" +
 	"\vinstruction\x18\x01 \x01(\tR\vinstruction\x12\x1a\n" +
-	"\blanguage\x18\x02 \x01(\tR\blanguage\"<\n" +
+	"\blanguage\x18\x02 \x01(\tR\blanguage\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x03 \x01(\tR\tsessionId\"<\n" +
 	"\fHealthStatus\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"`\n" +
