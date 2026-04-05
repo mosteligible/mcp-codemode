@@ -17,6 +17,9 @@ services:
       dockerfile: Dockerfile
     env_file:
       - ./coderunner/.env
+    limits:
+      cpus: '1.0'
+      memory: 2048M
     depends_on:
       redis:
         condition: service_healthy

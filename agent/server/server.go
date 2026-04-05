@@ -12,6 +12,7 @@ import (
 	"github.com/mosteligible/mcp-codemode/agent/core"
 	"github.com/mosteligible/mcp-codemode/agent/core/common"
 	"github.com/mosteligible/mcp-codemode/agent/states"
+	"go.opentelemetry.io/otel/trace/noop"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -27,6 +28,7 @@ func NewServer(shutdownSignal chan struct{}) *Server {
 	conf := config.NewConfig()
 	dockerClient, err := client.New(
 		client.FromEnv,
+		client.WithTraceProvider(noop.NewTracerProvider()),
 	)
 	if err != nil {
 		log.Fatal("could not create docker client: ", err.Error())
