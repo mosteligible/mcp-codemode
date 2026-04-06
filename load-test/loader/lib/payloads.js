@@ -89,3 +89,32 @@ export function pickMixedPayload(iterationInTest) {
 	const mix = buildWeightedMix();
 	return mix[iterationInTest % mix.length];
 }
+
+export function buildBoundedLongPayload(iterationInTest) {
+	const minSeconds = integerFromEnv('LONG_FORM_MIN_SECONDS', 5);
+	const maxSeconds = integerFromEnv('LONG_FORM_MAX_SECONDS', 25);
+	const lowerBound = Math.min(minSeconds, maxSeconds);
+	const upperBound = Math.max(minSeconds, maxSeconds);
+	const span = upperBound - lowerBound + 1;
+	const durationSeconds = lowerBound + (iterationInTest % span);
+
+	return {
+		name: 'bounded-long',
+		language: 'bash',
+		code: [
+			"python - <<'PY'",
+			'import math',
+			'import time',
+			`deadline = time.time() + ${durationSeconds}`,
+			'acc = 0.0',
+			'i = 0',
+			'while time.time() < deadline:',
+			'    acc += math.sqrt((i % 1000) + 1)',
+			'    i += 1',
+			`print(f'bounded-long-ok:${durationSeconds}:{i}:{acc:.2f}')`,
+			'PY',
+		].join('\n'),
+		expectText: 'bounded-long-ok:',
+		durationSeconds,
+	};
+}
