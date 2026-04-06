@@ -1,0 +1,212 @@
+========================================================================================================================================
+     execution: local
+        script: loader/smoke.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 1 max VUs, 1m0s max duration (incl. graceful stop):
+              * smoke: 1 looping VUs for 30s (gracefulStop: 30s)
+
+
+
+  █ THRESHOLDS 
+
+    command_error_responses
+    ✓ 'rate==0' rate=0.00%
+
+    http_req_duration
+    ✓ 'p(95)<30000' p(95)=52.09ms
+    ✓ 'p(99)<35000' p(99)=64.72ms
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+    invalid_json_responses
+    ✓ 'rate==0' rate=0.00%
+
+    missing_output_responses
+    ✓ 'rate==0' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 3075    102.338089/s
+    checks_succeeded...: 100.00% 3075 out of 3075
+    checks_failed......: 0.00%   0 out of 3075
+
+    ✓ status is 200
+    ✓ response is json
+    ✓ response includes output
+    ✓ response error field is string when present
+    ✓ response contains expected marker
+
+    CUSTOM
+    command_error_responses........: 0.00%  0 out of 615
+    invalid_json_responses.........: 0.00%  0 out of 615
+    missing_output_responses.......: 0.00%  0 out of 615
+
+    HTTP
+    http_req_duration..............: avg=48.53ms min=43.86ms med=47.5ms  max=374.5ms p(90)=49.83ms p(95)=52.09ms
+      { expected_response:true }...: avg=48.53ms min=43.86ms med=47.5ms  max=374.5ms p(90)=49.83ms p(95)=52.09ms
+    http_req_failed................: 0.00%  0 out of 615
+    http_reqs......................: 615    20.467618/s
+
+    EXECUTION
+    iteration_duration.............: avg=48.84ms min=44.15ms med=47.84ms max=375.4ms p(90)=50.07ms p(95)=52.54ms
+    iterations.....................: 615    20.467618/s
+    vus............................: 1      min=1        max=1
+    vus_max........................: 1      min=1        max=1
+
+    NETWORK
+    data_received..................: 81 kB  2.7 kB/s
+    data_sent......................: 108 kB 3.6 kB/s
+
+
+
+
+running (0m30.0s), 0/1 VUs, 615 complete and 0 interrupted iterations
+smoke ✓ [======================================] 1 VUs  30s
+
+========================================================================================================================================
+
+     execution: local
+        script: loader/mixed-ramp.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 40 max VUs, 12m30s max duration (incl. graceful stop):
+              * mixed_ramp: Up to 24.00 iterations/s for 12m0s over 6 stages (maxVUs: 4-40, gracefulStop: 30s)
+
+WARN[0281] Insufficient VUs, reached 40 active VUs and cannot initialize more  executor=ramping-arrival-rate scenario=mixed_ramp
+
+
+  █ THRESHOLDS 
+
+    command_error_responses
+    ✓ 'rate<0.05' rate=0.00%
+
+    http_req_duration
+    ✓ 'p(95)<30000' p(95)=25.69s
+    ✓ 'p(99)<35000' p(99)=28.03s
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+    invalid_json_responses
+    ✓ 'rate==0' rate=0.00%
+
+    missing_output_responses
+    ✓ 'rate==0' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 14915  20.387105/s
+    checks_succeeded...: 99.96% 14910 out of 14915
+    checks_failed......: 0.03%  5 out of 14915
+
+    ✓ status is 200
+    ✓ response is json
+    ✓ response includes output
+    ✓ response error field is string when present
+    ✗ response contains expected marker
+      ↳  99% — ✓ 2978 / ✗ 5
+
+    CUSTOM
+    command_error_responses........: 0.00%  0 out of 2983
+    invalid_json_responses.........: 0.00%  0 out of 2983
+    missing_output_responses.......: 0.00%  0 out of 2983
+
+    HTTP
+    http_req_duration..............: avg=6.45s min=50.3ms  med=388.6ms  max=31.81s p(90)=25.49s p(95)=25.69s
+      { expected_response:true }...: avg=6.45s min=50.3ms  med=388.6ms  max=31.81s p(90)=25.49s p(95)=25.69s
+    http_req_failed................: 0.00%  0 out of 2983
+    http_reqs......................: 2983   4.077421/s
+
+    EXECUTION
+    dropped_iterations.............: 3557   4.862014/s
+    iteration_duration.............: avg=6.45s min=50.69ms med=389.12ms max=31.81s p(90)=25.49s p(95)=25.69s
+    iterations.....................: 2983   4.077421/s
+    vus............................: 6      min=0         max=40
+    vus_max........................: 40     min=4         max=40
+
+    NETWORK
+    data_received..................: 401 kB 548 B/s
+    data_sent......................: 617 kB 843 B/s
+
+
+
+
+running (12m11.6s), 00/40 VUs, 2983 complete and 0 interrupted iterations
+mixed_ramp ✓ [======================================] 00/40 VUs  12m0s  24.00 iters/s
+
+========================================================================================================================================
+
+     execution: local
+        script: loader/mixed-soak.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 32 max VUs, 20m30s max duration (incl. graceful stop):
+              * mixed_soak: 4.00 iterations/s for 20m0s (maxVUs: 8-32, gracefulStop: 30s)
+
+WARN[0104] Insufficient VUs, reached 32 active VUs and cannot initialize more  executor=constant-arrival-rate scenario=mixed_soak
+
+
+  █ THRESHOLDS 
+
+    command_error_responses
+    ✓ 'rate<0.05' rate=0.00%
+
+    http_req_duration
+    ✓ 'p(95)<30000' p(95)=25.53s
+    ✓ 'p(99)<35000' p(99)=25.69s
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+    invalid_json_responses
+    ✓ 'rate==0' rate=0.00%
+
+    missing_output_responses
+    ✓ 'rate==0' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 23500   19.175658/s
+    checks_succeeded...: 100.00% 23500 out of 23500
+    checks_failed......: 0.00%   0 out of 23500
+
+    ✓ status is 200
+    ✓ response is json
+    ✓ response includes output
+    ✓ response error field is string when present
+    ✓ response contains expected marker
+
+    CUSTOM
+    command_error_responses........: 0.00%  0 out of 4700
+    invalid_json_responses.........: 0.00%  0 out of 4700
+    missing_output_responses.......: 0.00%  0 out of 4700
+
+    HTTP
+    http_req_duration..............: avg=5.94s min=61.5ms  med=347.72ms max=25.95s p(90)=25.24s p(95)=25.53s
+      { expected_response:true }...: avg=5.94s min=61.5ms  med=347.72ms max=25.95s p(90)=25.24s p(95)=25.53s
+    http_req_failed................: 0.00%  0 out of 4700
+    http_reqs......................: 4700   3.835132/s
+
+    EXECUTION
+    dropped_iterations.............: 101    0.082415/s
+    iteration_duration.............: avg=5.94s min=63.04ms med=348.48ms max=25.95s p(90)=25.24s p(95)=25.53s
+    iterations.....................: 4700   3.835132/s
+    vus............................: 3      min=0         max=32
+    vus_max........................: 32     min=8         max=32
+
+    NETWORK
+    data_received..................: 632 kB 516 B/s
+    data_sent......................: 973 kB 794 B/s
+
+
+
+
+running (20m25.5s), 00/32 VUs, 4700 complete and 0 interrupted iterations
+mixed_soak ✓ [======================================] 00/32 VUs  20m0s  4.00 iters/s
+
+========================================================================================================================================

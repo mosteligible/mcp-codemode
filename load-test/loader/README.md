@@ -7,6 +7,7 @@ This folder contains the first k6-based load test harness for the coderunner `PO
 - `smoke.js`: low-risk validation against the `short` workload profile.
 - `mixed-ramp.js`: staged ramp test for finding the latency knee and initial throughput limit.
 - `mixed-soak.js`: steady-state mixed workload for checking sustainable capacity.
+- `long-form.js`: 5-minute constant-VU test where each request runs for bounded 5 to 25 second CPU work.
 
 ## Request contract
 
@@ -19,7 +20,7 @@ The runner endpoint expects this JSON body:
 }
 ```
 
-The current agent executes the `code` field through `bash -c`, so the built-in workload profiles send shell commands. The medium and long profiles use shell commands that invoke Python inside the container because the default agent image already includes Python.
+The current agent executes the `code` field through `bash -c`, so the built-in workload profiles send shell commands. The medium, long, and long-form profiles use shell commands that invoke Python inside the container because the default agent image already includes Python.
 
 ## Default workload mix
 
@@ -41,6 +42,7 @@ Run from the repository root:
 k6 run load-test/loader/smoke.js
 k6 run load-test/loader/mixed-ramp.js
 k6 run load-test/loader/mixed-soak.js
+k6 run load-test/loader/long-form.js
 ```
 
 Target a remote coderunner instance:
@@ -57,6 +59,8 @@ CODERUNNER_BASE_URL=http://machine-1.local:8080 k6 run load-test/loader/mixed-ra
 - `THINK_TIME_SECONDS`: optional sleep after each request, default `0`
 - `MEDIUM_PYTHON_ITERATIONS`: medium workload intensity, default `4000000`
 - `LONG_BUSY_SECONDS`: long workload duration target, default `25`
+- `LONG_FORM_MIN_SECONDS`: minimum command duration for `long-form.js`, default `5`
+- `LONG_FORM_MAX_SECONDS`: maximum command duration for `long-form.js`, default `25`
 - `MIX_SHORT_WEIGHT`: short profile weight, default `70`
 - `MIX_MEDIUM_WEIGHT`: medium profile weight, default `20`
 - `MIX_LONG_WEIGHT`: long profile weight, default `10`
@@ -82,6 +86,15 @@ Smoke scenario tuning:
 
 - `SMOKE_VUS`
 - `SMOKE_DURATION`
+
+Long-form scenario tuning:
+
+- `LONG_FORM_VUS`
+- `LONG_FORM_DURATION`
+- `LONG_FORM_MIN_SECONDS`
+- `LONG_FORM_MAX_SECONDS`
+
+The long-form workload uses a time-bounded compute loop instead of `sleep`, so it is better for exposing CPU bottlenecks on the agent machine.
 
 ## Current checks
 
