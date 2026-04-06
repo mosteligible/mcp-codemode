@@ -25,17 +25,16 @@ var bufferPool = sync.Pool{
 	},
 }
 
-type ContainerId string
 type ActiveContainers struct {
-	Ids          []string
-	containerMap map[string]struct{}
+	Ids          []ContainerId
+	containerMap map[ContainerId]ContainerStatus
 	lock         sync.RWMutex
 }
 
 func NewActiveContainers(containerClient *client.Client, minActive int, imageName string) *ActiveContainers {
 	ac := ActiveContainers{
-		Ids:          []string{},
-		containerMap: make(map[string]struct{}),
+		Ids:          []ContainerId{},
+		containerMap: make(map[ContainerId]ContainerStatus),
 	}
 	ac.SetActiveContainers(containerClient, minActive, imageName)
 
@@ -45,14 +44,14 @@ func NewActiveContainers(containerClient *client.Client, minActive int, imageNam
 func (c *ActiveContainers) Add(id ContainerId) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.Ids = append(c.Ids, string(id))
+	c.Ids = append(c.Ids, id)
 }
 
 func (c *ActiveContainers) Remove(id ContainerId) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 	for i, v := range c.Ids {
-		if v == string(id) {
+		if v == id {
 			c.Ids = append(c.Ids[:i], c.Ids[i+1:]...)
 			break
 		}
@@ -65,7 +64,12 @@ func (c *ActiveContainers) Count() int {
 	return len(c.Ids)
 }
 
-func (c *ActiveContainers) Execute(ctx context.Context, containerClient *client.Client, instruction string) (types.ExecuteResult, error) {
+func (c *ActiveContainers) Execute(
+	ctx context.Context, containerClient *client.Client, instruction string, containerId ContainerId,
+) (types.ExecuteResult, error) {
+	if containerId != "" {
+		return c.ExecuteInSession(ctx, containerClient, containerId, instruction)
+	}
 	// get random id from active containers
 	c.lock.RLock()
 	if len(c.Ids) == 0 {
@@ -78,7 +82,7 @@ func (c *ActiveContainers) Execute(ctx context.Context, containerClient *client.
 
 	result, err := containerClient.ExecCreate(
 		ctx,
-		containerID,
+		string(containerID),
 		client.ExecCreateOptions{
 			Cmd:          []string{"bash", "-c", instruction},
 			AttachStdout: true,
@@ -128,6 +132,13 @@ func (c *ActiveContainers) Execute(ctx context.Context, containerClient *client.
 	}, nil
 }
 
+func (c *ActiveContainers) ExecuteInSession(ctx context.Context, containerClient *client.Client, containerId ContainerId, instruction string) (types.ExecuteResult, error) {
+	if _, exists := c.containerMap[containerId]; !exists {
+		return types.ExecuteResult{}, fmt.Errorf("container with id %s not found in active containers", containerId)
+	}
+	return types.ExecuteResult{}, fmt.Errorf("session-based execution not implemented yet")
+}
+
 func (c *ActiveContainers) SetActiveContainers(containerClient *client.Client, minActive int, imageName string) {
 	// run in a goroutine at intervals to update the active containers
 	// where
@@ -160,13 +171,14 @@ func (c *ActiveContainers) SetActiveContainers(containerClient *client.Client, m
 		}
 	}
 
-	currentContainers := []string{}
-	containerMap := make(map[string]struct{})
+	currentContainers := []ContainerId{}
+	containerMap := make(map[ContainerId]ContainerStatus)
 	seenItems := 0
 	for _, containerID := range containers {
-		currentContainers = append(currentContainers, containerID)
-		containerMap[containerID] = struct{}{}
-		if _, exists := c.containerMap[containerID]; exists {
+		cid := (ContainerId)(containerID)
+		currentContainers = append(currentContainers, cid)
+		containerMap[cid] = ContainerStatus{id: cid}
+		if _, exists := c.containerMap[cid]; exists {
 			seenItems++
 		}
 	}

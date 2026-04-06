@@ -12,6 +12,8 @@ import (
 	"github.com/mosteligible/mcp-codemode/agent/core"
 	"github.com/mosteligible/mcp-codemode/agent/core/common"
 	"github.com/mosteligible/mcp-codemode/agent/states"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -82,8 +84,12 @@ func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*p
 	const maxExecutionTime = 30 * time.Second
 	timeoutContext, cancel := context.WithTimeout(ctx, maxExecutionTime)
 	defer cancel()
+	trace.SpanFromContext(timeoutContext).SetAttributes(
+		attribute.String("code.instruction", in.Instruction),
+		attribute.String("code.language", in.Language),
+	)
 	slog.Info("received code", "instruction", in.Instruction, "language", in.Language)
-	result, err := s.containerState.Containers.Execute(timeoutContext, s.containerClient, in.Instruction)
+	result, err := s.containerState.Containers.Execute(timeoutContext, s.containerClient, in.Instruction, (states.ContainerId)(in.SessionId))
 	if err != nil {
 		return &pb.ExecuteCodeResponse{
 			ExitCode: 2,
@@ -102,11 +108,12 @@ func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*p
 func (s *Server) HandleShutdown() {
 	slog.Info("shutting down server, cleaning up containers...")
 	for _, containerID := range s.containerState.Containers.Ids {
-		_, err := s.containerClient.ContainerStop(context.Background(), containerID, client.ContainerStopOptions{Timeout: nil})
+		cid := (string)(containerID)
+		_, err := s.containerClient.ContainerStop(context.Background(), cid, client.ContainerStopOptions{Timeout: nil})
 		if err != nil {
-			slog.Error("error stopping container " + containerID + ": " + err.Error())
+			slog.Error("error stopping container " + cid + ": " + err.Error())
 		} else {
-			slog.Info("stopped container " + containerID)
+			slog.Info("stopped container " + cid)
 		}
 	}
 	slog.Info("all containers cleaned up, shutting down server")
