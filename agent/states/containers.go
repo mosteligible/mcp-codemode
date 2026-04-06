@@ -158,6 +158,9 @@ func (c *ActiveContainers) SetActiveContainers(containerClient *client.Client, m
 						Image: imageName,
 						Cmd:   []string{"sleep", "infinity"},
 					},
+					HostConfig: &container.HostConfig{
+						Runtime: "runsc",
+					},
 				})
 			if err != nil {
 				slog.Error("error creating container: " + err.Error())
