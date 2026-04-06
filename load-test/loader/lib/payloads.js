@@ -111,7 +111,7 @@ export function buildBoundedLongPayload(iterationInTest) {
 			'while time.time() < deadline:',
 			'    acc += math.sqrt((i % 1000) + 1)',
 			'    i += 1',
-			`print(f'bounded-long-ok:${durationSeconds}:{i}:{acc:.2f}')`,
+			`print(f"bounded-long-ok:${durationSeconds}:{i}:{acc:.2f}")`,
 			'PY',
 		].join('\n'),
 		expectText: 'bounded-long-ok:',

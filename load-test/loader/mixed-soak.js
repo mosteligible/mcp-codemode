@@ -8,11 +8,11 @@ export const options = {
 	},
 	scenarios: {
 		mixed_soak: buildConstantArrivalRateScenario('SOAK', {
-			rate: 4,
+			rate: 8,
 			timeUnit: '1s',
 			duration: '20m',
 			preAllocatedVUs: 8,
-			maxVUs: 32,
+			maxVUs: 64,
 		}),
 	},
 };

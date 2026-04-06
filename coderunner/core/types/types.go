@@ -1,8 +1,9 @@
 package types
 
 type CodeRunnerRequest struct {
-	Code     string `json:"code"`
-	Language string `json:"language"`
+	Code      string `json:"code"`
+	Language  string `json:"language"`
+	SessionId string `json:"sessionId,omitempty"`
 }
 
 type CommandOutput struct {

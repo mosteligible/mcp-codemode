@@ -77,6 +77,7 @@ func ExecuteCommand(ctx context.Context, connection *workerclient.WorkerClient, 
 		return output
 	}
 	output.Output = result.Output
+	output.ErrorMessage = result.Error
 
 	return output
 }
