@@ -28,6 +28,7 @@ var bufferPool = sync.Pool{
 type ActiveContainers struct {
 	Ids          []ContainerId
 	containerMap map[ContainerId]ContainerStatus
+	sessionMap   map[string]ContainerId
 	lock         sync.RWMutex
 }
 
@@ -35,6 +36,7 @@ func NewActiveContainers(containerClient *client.Client, minActive int, imageNam
 	ac := ActiveContainers{
 		Ids:          []ContainerId{},
 		containerMap: make(map[ContainerId]ContainerStatus),
+		sessionMap:   make(map[string]ContainerId),
 	}
 	ac.SetActiveContainers(containerClient, minActive, imageName)
 
@@ -235,6 +237,44 @@ func NewContainerState(containerClient *client.Client, imageName string, minActi
 	}
 }
 
+func (cs *ContainerState) StartContainer(containerClient *client.Client) (ContainerId, error) {
+	newContainer, err := containerClient.ContainerCreate(
+		context.Background(),
+		client.ContainerCreateOptions{
+			Config: &container.Config{
+				Image: cs.containerImageName,
+				Cmd:   []string{"sleep", "infinity"},
+			},
+			HostConfig: &container.HostConfig{
+				Runtime: "runsc",
+			},
+		})
+	if err != nil {
+		slog.Error("error creating container", "error", err.Error())
+		return "", fmt.Errorf("error creating container")
+	}
+	if _, err := containerClient.ContainerStart(context.Background(), newContainer.ID, client.ContainerStartOptions{}); err != nil {
+		slog.Error("error starting container", "error", err.Error())
+		return "", fmt.Errorf("error starting container")
+	}
+	cs.Containers.Add(ContainerId(newContainer.ID))
+	return ContainerId(newContainer.ID), nil
+}
+
+func (cs *ContainerState) StartContainerForUserSession(containerClient *client.Client, sessionId string) {
+	containerId, err := cs.StartContainer(containerClient)
+	if err != nil {
+		slog.Error("error starting container for user session", "sessionId", sessionId, "error", err.Error())
+		return
+	}
+	slog.Info("started container for user session", "sessionId", sessionId, "containerId", containerId)
+	cs.Containers.containerMap[containerId] = ContainerStatus{
+		id:        containerId,
+		sessionId: sessionId,
+		startedAt: time.Now(),
+	}
+}
+
 func (cs *ContainerState) StopActiveContainers(containerClient *client.Client) {
 	containers, err := common.GetActiveContainerIds(containerClient)
 	if err != nil {
@@ -247,6 +287,21 @@ func (cs *ContainerState) StopActiveContainers(containerClient *client.Client) {
 			slog.Error("error stopping container: " + err.Error())
 			continue
 		}
+		cs.Containers.Remove(ContainerId(containerID))
 		slog.Info("stopped container: " + containerID)
+	}
+}
+
+func (cs *ContainerState) CleanupIdleContainers(containerClient *client.Client, idleInterval int) {
+	for id, status := range cs.Containers.containerMap {
+		if time.Since(status.lastExecAt).Seconds() > float64(idleInterval) {
+			slog.Info("cleaning up idle container", "containerId", id)
+			if _, err := containerClient.ContainerStop(context.Background(), string(id), client.ContainerStopOptions{}); err != nil {
+				slog.Error("error stopping container: " + err.Error())
+				continue
+			}
+			slog.Info("stopped idle container: " + string(id))
+			cs.Containers.Remove(id)
+		}
 	}
 }

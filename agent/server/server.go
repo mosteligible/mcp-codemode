@@ -43,21 +43,6 @@ func NewServer(shutdownSignal chan struct{}) *Server {
 	slog.Info("docker found, starting server")
 	containerState := states.NewContainerState(dockerClient, conf.DockerImageName, conf.MinActive)
 
-	go func() {
-		ticker := time.NewTicker(time.Duration(conf.ActiveContainerCheckInterval) * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				slog.Info("setting minimum active containers")
-				containerState.Containers.SetActiveContainers(dockerClient, conf.MinActive, conf.DockerImageName)
-			case <-shutdownSignal:
-				return
-			}
-
-		}
-	}()
-
 	return &Server{
 		containerState:  containerState,
 		containerClient: dockerClient,
@@ -89,7 +74,7 @@ func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*p
 		attribute.String("code.language", in.Language),
 	)
 	slog.Info("received code", "instruction", in.Instruction, "language", in.Language)
-	result, err := s.containerState.Containers.Execute(timeoutContext, s.containerClient, in.Instruction, (states.ContainerId)(in.SessionId))
+	result, err := s.containerState.Containers.Execute(timeoutContext, s.containerClient, in.Instruction, states.ContainerId(in.SessionId))
 	if err != nil {
 		return &pb.ExecuteCodeResponse{
 			ExitCode: 2,
