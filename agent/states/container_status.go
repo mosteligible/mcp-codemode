@@ -3,17 +3,25 @@ package states
 import (
 	"fmt"
 	"time"
+
+	"github.com/mosteligible/mcp-codemode/agent/types"
 )
 
 const DefaultIdleContainerCleanupInterval = 300 // in seconds
 
-type ContainerId string
-
 type ContainerStatus struct {
-	id         ContainerId
+	id         types.ContainerId
 	lastExecAt time.Time
 	startedAt  time.Time
-	sessionId  string
+	sessionId  types.SessionId
+}
+
+func NewContainerStatus(id types.ContainerId, sessionId string) ContainerStatus {
+	return ContainerStatus{
+		id:        types.ContainerId(id),
+		sessionId: types.SessionId(sessionId),
+		startedAt: time.Now(),
+	}
 }
 
 func (cs *ContainerStatus) IsAvailable() bool {
@@ -25,6 +33,6 @@ func (cs *ContainerStatus) AddSession(sessionId string) error {
 		return fmt.Errorf("container is already in a session")
 	}
 
-	cs.sessionId = sessionId
+	cs.sessionId = types.SessionId(sessionId)
 	return nil
 }

@@ -26,60 +26,57 @@ var bufferPool = sync.Pool{
 }
 
 type ActiveContainers struct {
-	Ids          []ContainerId
-	containerMap map[ContainerId]ContainerStatus
-	sessionMap   map[string]ContainerId
+	containerMap map[types.ContainerId]ContainerStatus
+	sessionMap   map[string]types.ContainerId
 	lock         sync.RWMutex
 }
 
 func NewActiveContainers(containerClient *client.Client, minActive int, imageName string) *ActiveContainers {
 	ac := ActiveContainers{
-		Ids:          []ContainerId{},
-		containerMap: make(map[ContainerId]ContainerStatus),
-		sessionMap:   make(map[string]ContainerId),
+		containerMap: make(map[types.ContainerId]ContainerStatus),
+		sessionMap:   make(map[string]types.ContainerId),
 	}
 	ac.SetActiveContainers(containerClient, minActive, imageName)
 
 	return &ac
 }
 
-func (c *ActiveContainers) Add(id ContainerId) {
+func (c *ActiveContainers) Add(id types.ContainerId) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.Ids = append(c.Ids, id)
+	c.containerMap[id] = NewContainerStatus(id, "")
 }
 
-func (c *ActiveContainers) Remove(id ContainerId) {
+func (c *ActiveContainers) Remove(id types.ContainerId) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	for i, v := range c.Ids {
-		if v == id {
-			c.Ids = append(c.Ids[:i], c.Ids[i+1:]...)
-			break
-		}
-	}
+	delete(c.containerMap, id)
 }
 
 func (c *ActiveContainers) Count() int {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	return len(c.Ids)
+	return len(c.containerMap)
 }
 
 func (c *ActiveContainers) Execute(
-	ctx context.Context, containerClient *client.Client, instruction string, containerId ContainerId,
+	ctx context.Context, containerClient *client.Client, instruction string, containerId types.ContainerId,
 ) (types.ExecuteResult, error) {
 	if containerId != "" {
 		return c.ExecuteInSession(ctx, containerClient, containerId, instruction)
 	}
 	// get random id from active containers
 	c.lock.RLock()
-	if len(c.Ids) == 0 {
+	if len(c.containerMap) == 0 {
 		c.lock.RUnlock()
 		return types.ExecuteResult{}, fmt.Errorf("no active containers available")
 	}
-	randindex := rand.Intn(len(c.Ids))
-	containerID := c.Ids[randindex]
+	keys := make([]types.ContainerId, 0, len(c.containerMap))
+	for k := range c.containerMap {
+		keys = append(keys, k)
+	}
+	randindex := rand.Intn(len(keys))
+	containerID := keys[randindex]
 	c.lock.RUnlock()
 
 	result, err := containerClient.ExecCreate(
@@ -134,7 +131,9 @@ func (c *ActiveContainers) Execute(
 	}, nil
 }
 
-func (c *ActiveContainers) ExecuteInSession(ctx context.Context, containerClient *client.Client, containerId ContainerId, instruction string) (types.ExecuteResult, error) {
+func (c *ActiveContainers) ExecuteInSession(
+	ctx context.Context, containerClient *client.Client, containerId types.ContainerId, instruction string,
+) (types.ExecuteResult, error) {
 	if _, exists := c.containerMap[containerId]; !exists {
 		return types.ExecuteResult{}, fmt.Errorf("container with id %s not found in active containers", containerId)
 	}
@@ -176,11 +175,11 @@ func (c *ActiveContainers) SetActiveContainers(containerClient *client.Client, m
 		}
 	}
 
-	currentContainers := []ContainerId{}
-	containerMap := make(map[ContainerId]ContainerStatus)
+	currentContainers := []types.ContainerId{}
+	containerMap := make(map[types.ContainerId]ContainerStatus)
 	seenItems := 0
 	for _, containerID := range containers {
-		cid := (ContainerId)(containerID)
+		cid := (types.ContainerId)(containerID)
 		currentContainers = append(currentContainers, cid)
 		containerMap[cid] = ContainerStatus{id: cid}
 		if _, exists := c.containerMap[cid]; exists {
@@ -193,7 +192,6 @@ func (c *ActiveContainers) SetActiveContainers(containerClient *client.Client, m
 
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.Ids = currentContainers
 	c.containerMap = containerMap
 }
 
@@ -237,7 +235,7 @@ func NewContainerState(containerClient *client.Client, imageName string, minActi
 	}
 }
 
-func (cs *ContainerState) StartContainer(containerClient *client.Client) (ContainerId, error) {
+func (cs *ContainerState) StartContainer(containerClient *client.Client) (types.ContainerId, error) {
 	newContainer, err := containerClient.ContainerCreate(
 		context.Background(),
 		client.ContainerCreateOptions{
@@ -257,8 +255,8 @@ func (cs *ContainerState) StartContainer(containerClient *client.Client) (Contai
 		slog.Error("error starting container", "error", err.Error())
 		return "", fmt.Errorf("error starting container")
 	}
-	cs.Containers.Add(ContainerId(newContainer.ID))
-	return ContainerId(newContainer.ID), nil
+	cs.Containers.Add(types.ContainerId(newContainer.ID))
+	return types.ContainerId(newContainer.ID), nil
 }
 
 func (cs *ContainerState) StartContainerForUserSession(containerClient *client.Client, sessionId string) {
@@ -268,27 +266,17 @@ func (cs *ContainerState) StartContainerForUserSession(containerClient *client.C
 		return
 	}
 	slog.Info("started container for user session", "sessionId", sessionId, "containerId", containerId)
-	cs.Containers.containerMap[containerId] = ContainerStatus{
-		id:        containerId,
-		sessionId: sessionId,
-		startedAt: time.Now(),
-	}
+	cs.Containers.containerMap[containerId] = NewContainerStatus(containerId, sessionId)
 }
 
 func (cs *ContainerState) StopActiveContainers(containerClient *client.Client) {
-	containers, err := common.GetActiveContainerIds(containerClient)
-	if err != nil {
-		slog.Error("error listing containers: " + err.Error())
-		return
-	}
-
-	for _, containerID := range containers {
-		if _, err := containerClient.ContainerStop(context.Background(), containerID, client.ContainerStopOptions{}); err != nil {
+	for containerID := range cs.Containers.containerMap {
+		if _, err := containerClient.ContainerStop(context.Background(), string(containerID), client.ContainerStopOptions{}); err != nil {
 			slog.Error("error stopping container: " + err.Error())
 			continue
 		}
-		cs.Containers.Remove(ContainerId(containerID))
-		slog.Info("stopped container: " + containerID)
+		cs.Containers.Remove(types.ContainerId(containerID))
+		slog.Info("stopped container: " + string(containerID))
 	}
 }
 

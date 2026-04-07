@@ -12,6 +12,7 @@ import (
 	"github.com/mosteligible/mcp-codemode/agent/core"
 	"github.com/mosteligible/mcp-codemode/agent/core/common"
 	"github.com/mosteligible/mcp-codemode/agent/states"
+	"github.com/mosteligible/mcp-codemode/agent/types"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -57,7 +58,9 @@ func (s *Server) Status(ctx context.Context, in *emptypb.Empty) (*pb.HealthStatu
 	}, nil
 }
 
-func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*pb.ExecuteCodeResponse, error) {
+func (s *Server) ExecuteCode(
+	ctx context.Context, in *pb.ExecuteCodeRequest,
+) (*pb.ExecuteCodeResponse, error) {
 	if err := common.ValidateProgrammingLanguage(in.Language); err != nil {
 		return &pb.ExecuteCodeResponse{
 			ExitCode: 2,
@@ -74,7 +77,9 @@ func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*p
 		attribute.String("code.language", in.Language),
 	)
 	slog.Info("received code", "instruction", in.Instruction, "language", in.Language)
-	result, err := s.containerState.Containers.Execute(timeoutContext, s.containerClient, in.Instruction, states.ContainerId(in.SessionId))
+	result, err := s.containerState.Containers.Execute(
+		timeoutContext, s.containerClient, in.Instruction, types.ContainerId(in.SessionId),
+	)
 	if err != nil {
 		return &pb.ExecuteCodeResponse{
 			ExitCode: 2,
@@ -82,7 +87,9 @@ func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*p
 			Error:    err.Error(),
 		}, nil
 	}
-	slog.Info("processed Code", "result", result.Stdout, "error", result.Stderr, "exitCode", result.ExitCode)
+	slog.Info(
+		"processed Code", "result", result.Stdout, "error", result.Stderr, "exitCode", result.ExitCode,
+	)
 	return &pb.ExecuteCodeResponse{
 		ExitCode: int32(result.ExitCode),
 		Output:   result.Stdout,
@@ -92,14 +99,6 @@ func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*p
 
 func (s *Server) HandleShutdown() {
 	slog.Info("shutting down server, cleaning up containers...")
-	for _, containerID := range s.containerState.Containers.Ids {
-		cid := (string)(containerID)
-		_, err := s.containerClient.ContainerStop(context.Background(), cid, client.ContainerStopOptions{Timeout: nil})
-		if err != nil {
-			slog.Error("error stopping container " + cid + ": " + err.Error())
-		} else {
-			slog.Info("stopped container " + cid)
-		}
-	}
+	s.containerState.StopActiveContainers(s.containerClient)
 	slog.Info("all containers cleaned up, shutting down server")
 }
