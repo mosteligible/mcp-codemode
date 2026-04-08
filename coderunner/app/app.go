@@ -134,7 +134,7 @@ func (a *App) RunCode(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(common.GetErrorResponseMessage("no available worker connections"))
 		return
 	}
-	output := common.ExecuteCommand(r.Context(), conn, codeRequest.Code, codeRequest.Language)
+	output := common.ExecuteCommand(r.Context(), conn, codeRequest.Code, codeRequest.Language, codeRequest.SessionId)
 
 	if output.ErrorMessage != "" {
 		w.WriteHeader(http.StatusInternalServerError)

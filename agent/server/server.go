@@ -26,6 +26,7 @@ type Server struct {
 	config          *config.Config
 }
 
+// NewServer initializes the Docker-backed execution state used by the gRPC service.
 func NewServer(shutdownSignal chan struct{}) *Server {
 	slog.Info("starting server")
 	conf := config.NewConfig()
@@ -51,6 +52,7 @@ func NewServer(shutdownSignal chan struct{}) *Server {
 	}
 }
 
+// Status returns a lightweight health response for liveness and readiness checks.
 func (s *Server) Status(ctx context.Context, in *emptypb.Empty) (*pb.HealthStatus, error) {
 	return &pb.HealthStatus{
 		Code:    0,
@@ -58,6 +60,7 @@ func (s *Server) Status(ctx context.Context, in *emptypb.Empty) (*pb.HealthStatu
 	}, nil
 }
 
+// ExecuteCode validates the request, applies a fixed timeout, and runs the code in a managed container.
 func (s *Server) ExecuteCode(
 	ctx context.Context, in *pb.ExecuteCodeRequest,
 ) (*pb.ExecuteCodeResponse, error) {
@@ -77,8 +80,8 @@ func (s *Server) ExecuteCode(
 		attribute.String("code.language", in.Language),
 	)
 	slog.Info("received code", "instruction", in.Instruction, "language", in.Language)
-	result, err := s.containerState.Containers.Execute(
-		timeoutContext, s.containerClient, in.Instruction, types.ContainerId(in.SessionId), types.SessionId(in.SessionId),
+	result, err := s.containerState.Execute(
+		timeoutContext, s.containerClient, in.Instruction, types.SessionId(in.SessionId),
 	)
 	if err != nil {
 		return &pb.ExecuteCodeResponse{
@@ -97,6 +100,7 @@ func (s *Server) ExecuteCode(
 	}, nil
 }
 
+// HandleShutdown stops managed containers before the process exits.
 func (s *Server) HandleShutdown() {
 	slog.Info("shutting down server, cleaning up containers...")
 	s.containerState.StopActiveContainers(s.containerClient)

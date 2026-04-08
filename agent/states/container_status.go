@@ -25,13 +25,15 @@ type ContainerStatus struct {
 	mutex      *sync.RWMutex
 }
 
-func NewContainerStatus(containerClient *client.Client, sessionId types.SessionId) *ContainerStatus {
+func NewContainerStatus(containerClient *client.Client, sessionId types.SessionId, imageName string) *ContainerStatus {
 	cs := &ContainerStatus{
 		sessionId: sessionId,
+		imageName: imageName,
 		startedAt: time.Now(),
 		mutex:     &sync.RWMutex{},
 	}
 	cs.StartContainer(context.Background(), containerClient)
+	slog.Info("container started", "container-id", cs.id)
 	return cs
 }
 
@@ -67,6 +69,7 @@ func (cs *ContainerStatus) StartContainer(
 func (cs *ContainerStatus) ExecuteCode(
 	ctx context.Context, containerClient *client.Client, instruction string,
 ) (types.ExecuteResult, error) {
+	slog.Info("executing code for container", "container-id", cs.id)
 	result, err := containerClient.ExecCreate(
 		ctx,
 		string(cs.id),
