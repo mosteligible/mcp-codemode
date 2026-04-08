@@ -2,11 +2,14 @@ name: Release Agent
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - agent/**
-      - agent-proto/**
+    tags:
+      - agent/v*
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Agent tag to release, for example agent/v0.1.0
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -15,15 +18,26 @@ jobs:
   prepare:
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.meta.outputs.tag }}
+      release_tag: ${{ steps.meta.outputs.release_tag }}
       release_name: ${{ steps.meta.outputs.release_name }}
     steps:
       - name: Compute release metadata
         id: meta
         run: |
-          tag="v$(date -u +%Y.%m.%d).${GITHUB_RUN_NUMBER}"
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
-          echo "release_name=Agent ${tag}" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            tag="${{ inputs.tag }}"
+          else
+            tag="${GITHUB_REF_NAME}"
+          fi
+
+          if [[ ! "$tag" =~ ^agent/v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Agent release tag must look like agent/v0.1.0" >&2
+            exit 1
+          fi
+
+          version="${tag#agent/}"
+          echo "release_tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "release_name=Agent ${version}" >> "$GITHUB_OUTPUT"
 
   build:
     needs: prepare
@@ -39,6 +53,9 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.release_tag }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -80,7 +97,7 @@ jobs:
       - name: Publish GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.prepare.outputs.tag }}
+          tag_name: ${{ needs.prepare.outputs.release_tag }}
           name: ${{ needs.prepare.outputs.release_name }}
           generate_release_notes: true
           make_latest: true

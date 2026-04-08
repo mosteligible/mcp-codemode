@@ -137,11 +137,23 @@ func NewContainerState(containerClient *client.Client, imageName string, minActi
 		"imageName", imageName,
 	)
 
-	return &ContainerState{
+	cs := &ContainerState{
 		containerImageName: imageName,
 		MinActive:          minActive,
 		Containers:         NewActiveContainers(containerClient, minActive, imageName),
 	}
+
+	// goroutine to garbage collect idle containers every 60 seconds; idle time 60 seconds
+	go func() {
+		ticker := time.NewTicker(60 * time.Second)
+		for {
+			<-ticker.C
+			slog.Info("running idle container cleanup")
+			cs.CleanupIdleContainers(containerClient, 60*8) // idle interval of 8 minutes
+		}
+	}()
+
+	return cs
 }
 
 func (cs *ContainerState) Execute(
@@ -165,13 +177,13 @@ func (cs *ContainerState) StartContainerForUserSession(containerClient *client.C
 }
 
 func (cs *ContainerState) StopActiveContainers(containerClient *client.Client) {
-	for sessionId := range cs.Containers.sessionToContainerMap {
-		if _, err := containerClient.ContainerStop(context.Background(), string(cs.Containers.sessionToContainerMap[sessionId]), client.ContainerStopOptions{}); err != nil {
+	for sessionId, containerId := range cs.Containers.sessionToContainerMap {
+		if _, err := containerClient.ContainerStop(context.Background(), string(containerId), client.ContainerStopOptions{}); err != nil {
 			slog.Error("error stopping container: " + err.Error())
 			continue
 		}
 		cs.Containers.Remove(types.SessionId(sessionId))
-		slog.Info("stopped container: " + string(cs.Containers.sessionToContainerMap[sessionId]))
+		slog.Info("stopped container: " + string(containerId))
 	}
 }
 
