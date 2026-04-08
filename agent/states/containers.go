@@ -10,11 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
 	"github.com/mosteligible/mcp-codemode/agent/constants"
-	"github.com/mosteligible/mcp-codemode/agent/core/common"
 	"github.com/mosteligible/mcp-codemode/agent/types"
 )
 
@@ -26,25 +23,18 @@ var bufferPool = sync.Pool{
 }
 
 type ActiveContainers struct {
-	containerMap map[types.ContainerId]ContainerStatus
-	sessionMap   map[string]types.ContainerId
-	lock         sync.RWMutex
+	containerMap          map[types.ContainerId]*ContainerStatus
+	sessionToContainerMap map[types.SessionId]types.ContainerId
+	lock                  sync.RWMutex
 }
 
 func NewActiveContainers(containerClient *client.Client, minActive int, imageName string) *ActiveContainers {
 	ac := ActiveContainers{
-		containerMap: make(map[types.ContainerId]ContainerStatus),
-		sessionMap:   make(map[string]types.ContainerId),
+		containerMap:          make(map[types.ContainerId]*ContainerStatus),
+		sessionToContainerMap: make(map[types.SessionId]types.ContainerId),
 	}
-	ac.SetActiveContainers(containerClient, minActive, imageName)
 
 	return &ac
-}
-
-func (c *ActiveContainers) Add(id types.ContainerId) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.containerMap[id] = NewContainerStatus(id, "")
 }
 
 func (c *ActiveContainers) Remove(id types.ContainerId) {
@@ -60,10 +50,10 @@ func (c *ActiveContainers) Count() int {
 }
 
 func (c *ActiveContainers) Execute(
-	ctx context.Context, containerClient *client.Client, instruction string, containerId types.ContainerId,
+	ctx context.Context, containerClient *client.Client, instruction string, containerId types.ContainerId, sessionId types.SessionId,
 ) (types.ExecuteResult, error) {
 	if containerId != "" {
-		return c.ExecuteInSession(ctx, containerClient, containerId, instruction)
+		return c.ExecuteInSession(ctx, containerClient, sessionId, instruction)
 	}
 	// get random id from active containers
 	c.lock.RLock()
@@ -79,120 +69,20 @@ func (c *ActiveContainers) Execute(
 	containerID := keys[randindex]
 	c.lock.RUnlock()
 
-	result, err := containerClient.ExecCreate(
-		ctx,
-		string(containerID),
-		client.ExecCreateOptions{
-			Cmd:          []string{"bash", "-c", instruction},
-			AttachStdout: true,
-			AttachStderr: true,
-			TTY:          false,
-		},
-	)
-
-	if err != nil {
-		return types.ExecuteResult{}, fmt.Errorf("error executing code: %s", err.Error())
-	}
-
-	attachResult, err := containerClient.ExecAttach(ctx, result.ID, client.ExecAttachOptions{TTY: false})
-	if err != nil {
-		return types.ExecuteResult{}, fmt.Errorf("error attaching to exec instance: %s", err.Error())
-	}
-	defer attachResult.Close()
-
-	select {
-	case <-ctx.Done():
-		return types.ExecuteResult{}, fmt.Errorf("execution timed out")
-	default:
-	}
-
-	stdout := bufferPool.Get().(*bytes.Buffer)
-	stderr := bufferPool.Get().(*bytes.Buffer)
-	defer func() {
-		stdout.Reset()
-		stderr.Reset()
-		bufferPool.Put(stderr)
-		bufferPool.Put(stdout)
-	}()
-
-	if _, err := stdcopy.StdCopy(stdout, stderr, attachResult.Reader); err != nil {
-		return types.ExecuteResult{}, fmt.Errorf("error copying output: %s", err.Error())
-	}
-
-	inspectResp, err := containerClient.ExecInspect(ctx, result.ID, client.ExecInspectOptions{})
-	if err != nil {
-		return types.ExecuteResult{}, fmt.Errorf("error inspecting exec instance: %s", err.Error())
-	}
-
-	return types.ExecuteResult{
-		ExitCode: inspectResp.ExitCode,
-		Stdout:   stdout.String(),
-		Stderr:   stderr.String(),
-	}, nil
+	containerStatus := c.containerMap[containerID]
+	return containerStatus.ExecuteCode(ctx, containerClient, instruction)
 }
 
 func (c *ActiveContainers) ExecuteInSession(
-	ctx context.Context, containerClient *client.Client, containerId types.ContainerId, instruction string,
+	ctx context.Context, containerClient *client.Client, sessionId types.SessionId, instruction string,
 ) (types.ExecuteResult, error) {
-	if _, exists := c.containerMap[containerId]; !exists {
-		return types.ExecuteResult{}, fmt.Errorf("container with id %s not found in active containers", containerId)
-	}
-	return types.ExecuteResult{}, fmt.Errorf("session-based execution not implemented yet")
-}
-
-func (c *ActiveContainers) SetActiveContainers(containerClient *client.Client, minActive int, imageName string) {
-	// run in a goroutine at intervals to update the active containers
-	// where
-	containers, err := common.GetActiveContainerIds(containerClient)
-	if err != nil {
-		slog.Error("error listing containers: " + err.Error())
-		return
+	containerId, exists := c.sessionToContainerMap[sessionId]
+	if !exists {
+		return types.ExecuteResult{}, fmt.Errorf("container with id %s not found in active containers", sessionId)
 	}
 
-	if len(containers) < minActive {
-		slog.Info("active containers below minimum, creating new container")
-		for range minActive - len(containers) {
-			newContainer, err := containerClient.ContainerCreate(
-				context.Background(),
-				client.ContainerCreateOptions{
-					Config: &container.Config{
-						Image: imageName,
-						Cmd:   []string{"sleep", "infinity"},
-					},
-					HostConfig: &container.HostConfig{
-						Runtime: "runsc",
-					},
-				})
-			if err != nil {
-				slog.Error("error creating container: " + err.Error())
-				continue
-			}
-			if _, err := containerClient.ContainerStart(context.Background(), newContainer.ID, client.ContainerStartOptions{}); err != nil {
-				slog.Error("error starting container: " + err.Error())
-				continue
-			}
-			containers = append(containers, newContainer.ID)
-		}
-	}
-
-	currentContainers := []types.ContainerId{}
-	containerMap := make(map[types.ContainerId]ContainerStatus)
-	seenItems := 0
-	for _, containerID := range containers {
-		cid := (types.ContainerId)(containerID)
-		currentContainers = append(currentContainers, cid)
-		containerMap[cid] = ContainerStatus{id: cid}
-		if _, exists := c.containerMap[cid]; exists {
-			seenItems++
-		}
-	}
-	if seenItems == len(currentContainers) {
-		return
-	}
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.containerMap = containerMap
+	containerStatus := c.containerMap[containerId]
+	return containerStatus.ExecuteCode(ctx, containerClient, instruction)
 }
 
 type ContainerState struct {
@@ -235,38 +125,18 @@ func NewContainerState(containerClient *client.Client, imageName string, minActi
 	}
 }
 
-func (cs *ContainerState) StartContainer(containerClient *client.Client) (types.ContainerId, error) {
-	newContainer, err := containerClient.ContainerCreate(
-		context.Background(),
-		client.ContainerCreateOptions{
-			Config: &container.Config{
-				Image: cs.containerImageName,
-				Cmd:   []string{"sleep", "infinity"},
-			},
-			HostConfig: &container.HostConfig{
-				Runtime: "runsc",
-			},
-		})
-	if err != nil {
-		slog.Error("error creating container", "error", err.Error())
-		return "", fmt.Errorf("error creating container")
-	}
-	if _, err := containerClient.ContainerStart(context.Background(), newContainer.ID, client.ContainerStartOptions{}); err != nil {
-		slog.Error("error starting container", "error", err.Error())
-		return "", fmt.Errorf("error starting container")
-	}
-	cs.Containers.Add(types.ContainerId(newContainer.ID))
-	return types.ContainerId(newContainer.ID), nil
+func (cs *ContainerState) StartContainer(containerClient *client.Client, sessionId types.SessionId) (types.ContainerId, error) {
+	containerStatus := NewContainerStatus(containerClient, sessionId)
+	return containerStatus.id, nil
 }
 
 func (cs *ContainerState) StartContainerForUserSession(containerClient *client.Client, sessionId string) {
-	containerId, err := cs.StartContainer(containerClient)
+	containerId, err := cs.StartContainer(containerClient, types.SessionId(sessionId))
 	if err != nil {
 		slog.Error("error starting container for user session", "sessionId", sessionId, "error", err.Error())
 		return
 	}
 	slog.Info("started container for user session", "sessionId", sessionId, "containerId", containerId)
-	cs.Containers.containerMap[containerId] = NewContainerStatus(containerId, sessionId)
 }
 
 func (cs *ContainerState) StopActiveContainers(containerClient *client.Client) {

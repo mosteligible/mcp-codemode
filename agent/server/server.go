@@ -78,7 +78,7 @@ func (s *Server) ExecuteCode(
 	)
 	slog.Info("received code", "instruction", in.Instruction, "language", in.Language)
 	result, err := s.containerState.Containers.Execute(
-		timeoutContext, s.containerClient, in.Instruction, types.ContainerId(in.SessionId),
+		timeoutContext, s.containerClient, in.Instruction, types.ContainerId(in.SessionId), types.SessionId(in.SessionId),
 	)
 	if err != nil {
 		return &pb.ExecuteCodeResponse{
