@@ -32,8 +32,15 @@ func NewContainerStatus(containerClient *client.Client, sessionId types.SessionI
 		startedAt: time.Now(),
 		mutex:     &sync.RWMutex{},
 	}
-	cs.StartContainer(context.Background(), containerClient)
-	slog.Info("container started", "container-id", cs.id)
+	for range 5 {
+		_, err := cs.StartContainer(context.Background(), containerClient)
+		if err != nil {
+			slog.Error("error starting container", "error", err.Error())
+		} else {
+			slog.Info("container started", "container-id", cs.id)
+			break
+		}
+	}
 	return cs
 }
 
@@ -107,6 +114,7 @@ func (cs *ContainerStatus) ExecuteCode(
 		bufferPool.Put(stdout)
 	}()
 
+	// TODO: this section needs to be made context aware to properly handle timeouts and cancellations
 	if _, err := stdcopy.StdCopy(stdout, stderr, attachResult.Reader); err != nil {
 		return types.ExecuteResult{}, fmt.Errorf("error copying output: %s", err.Error())
 	}
@@ -126,15 +134,6 @@ func (cs *ContainerStatus) ExecuteCode(
 
 func (cs *ContainerStatus) IsAvailable() bool {
 	return cs.sessionId == ""
-}
-
-func (cs *ContainerStatus) AddSession(sessionId string) error {
-	if cs.sessionId != "" {
-		return fmt.Errorf("container is already in a session")
-	}
-
-	cs.sessionId = types.SessionId(sessionId)
-	return nil
 }
 
 func (cs *ContainerStatus) UpdateLastExecAt() {

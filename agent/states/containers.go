@@ -80,8 +80,8 @@ func (c *ActiveContainers) Execute(
 	}
 	// get random id from active containers
 	c.lock.RLock()
+	defer c.lock.RUnlock()
 	if len(c.containerMap) == 0 {
-		c.lock.RUnlock()
 		return types.ExecuteResult{}, fmt.Errorf("no active containers available")
 	}
 	keys := make([]types.ContainerId, 0, len(c.containerMap))
@@ -90,9 +90,9 @@ func (c *ActiveContainers) Execute(
 	}
 	randindex := rand.Intn(len(keys))
 	containerID := keys[randindex]
-	c.lock.RUnlock()
 
 	containerStatus := c.containerMap[containerID]
+	c.lock.RUnlock()
 	return containerStatus.ExecuteCode(ctx, containerClient, instruction)
 }
 
