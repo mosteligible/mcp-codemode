@@ -42,9 +42,9 @@ func SendRequest(
 	}
 
 	slog.Info("starting request to: " + url + " correlation_id: " + correlationID)
-	for k, v := range headers {
-		req.Header.Set(k, v)
-	}
+	// for k, v := range headers {
+	// 	req.Header.Set(k, v)
+	// }
 	response, err = client.Do(req)
 	if err != nil {
 		slog.Error("error sending request: " + err.Error() + " correlation_id: " + correlationID)
