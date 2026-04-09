@@ -201,9 +201,11 @@ func (cs *ContainerState) CleanupIdleContainers(containerClient *client.Client, 
 	for id, status := range cs.Containers.containerMap {
 		if time.Since(status.lastExecAt).Seconds() > float64(idleInterval) {
 			slog.Info("cleaning up idle container", "containerId", id)
-			if _, err := containerClient.ContainerStop(context.Background(), string(id), client.ContainerStopOptions{}); err != nil {
-				slog.Error("error stopping container: " + err.Error())
-				continue
+			for range 5 {
+				err := status.StopContainer(containerClient)
+				if err != nil {
+					continue
+				}
 			}
 			slog.Info("stopped idle container: " + string(id))
 			cs.Containers.Remove(types.SessionId(status.sessionId))

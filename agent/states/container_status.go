@@ -22,7 +22,7 @@ type ContainerStatus struct {
 	lastExecAt time.Time
 	startedAt  time.Time
 	sessionId  types.SessionId
-	mutex      *sync.RWMutex
+	lock       *sync.RWMutex
 }
 
 func NewContainerStatus(containerClient *client.Client, sessionId types.SessionId, imageName string) *ContainerStatus {
@@ -30,7 +30,7 @@ func NewContainerStatus(containerClient *client.Client, sessionId types.SessionI
 		sessionId: sessionId,
 		imageName: imageName,
 		startedAt: time.Now(),
-		mutex:     &sync.RWMutex{},
+		lock:      &sync.RWMutex{},
 	}
 	for range 5 {
 		_, err := cs.StartContainer(context.Background(), containerClient)
@@ -137,7 +137,18 @@ func (cs *ContainerStatus) IsAvailable() bool {
 }
 
 func (cs *ContainerStatus) UpdateLastExecAt() {
-	cs.mutex.Lock()
-	defer cs.mutex.Unlock()
+	cs.lock.Lock()
+	defer cs.lock.Unlock()
 	cs.lastExecAt = time.Now()
+}
+
+func (cs *ContainerStatus) StopContainer(containerClient *client.Client) error {
+	cs.lock.Lock()
+	defer cs.lock.Unlock()
+	_, err := containerClient.ContainerStop(context.Background(), string(cs.id), client.ContainerStopOptions{})
+	if err != nil {
+		slog.Error("error stopping container", "container-id", cs.id, "error", err.Error())
+		return err
+	}
+	return nil
 }
