@@ -27,17 +27,19 @@ type ContainerStatus struct {
 
 func NewContainerStatus(containerClient *client.Client, sessionId types.SessionId, imageName string) *ContainerStatus {
 	cs := &ContainerStatus{
-		sessionId: sessionId,
-		imageName: imageName,
-		startedAt: time.Now(),
-		lock:      &sync.RWMutex{},
+		sessionId:  sessionId,
+		imageName:  imageName,
+		lastExecAt: time.Now(),
+		startedAt:  time.Now(),
+		lock:       &sync.RWMutex{},
 	}
 	for range 5 {
-		_, err := cs.StartContainer(context.Background(), containerClient)
+		containerId, err := cs.StartContainer(context.Background(), containerClient)
 		if err != nil {
 			slog.Error("error starting container", "error", err.Error())
 		} else {
-			slog.Info("container started", "container-id", cs.id)
+			slog.Info("container started", "container-id", containerId)
+			cs.id = containerId
 			break
 		}
 	}

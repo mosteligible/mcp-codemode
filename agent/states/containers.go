@@ -80,8 +80,8 @@ func (c *ActiveContainers) Execute(
 	}
 	// get random id from active containers
 	c.lock.RLock()
-	defer c.lock.RUnlock()
 	if len(c.containerMap) == 0 {
+		c.lock.RUnlock()
 		return types.ExecuteResult{}, fmt.Errorf("no active containers available")
 	}
 	keys := make([]types.ContainerId, 0, len(c.containerMap))
@@ -105,10 +105,11 @@ func (c *ActiveContainers) ExecuteInSession(
 	if !exists {
 		slog.Info("no active container for session, starting new container", "sessionId", sessionId)
 		containerStatus = NewContainerStatus(containerClient, sessionId, imageName)
-		c.containerMap[containerStatus.id] = containerStatus
-		c.sessionToContainerMap[sessionId] = containerStatus.id
+		c.Add(containerStatus)
 	} else {
+		c.lock.RLock()
 		containerStatus = c.containerMap[containerId]
+		c.lock.RUnlock()
 	}
 
 	return containerStatus.ExecuteCode(ctx, containerClient, instruction)
@@ -197,9 +198,9 @@ func (cs *ContainerState) StopActiveContainers(containerClient *client.Client) {
 	}
 }
 
-func (cs *ContainerState) CleanupIdleContainers(containerClient *client.Client, idleInterval int) {
+func (cs *ContainerState) CleanupIdleContainers(containerClient *client.Client, idleInterval float64) {
 	for id, status := range cs.Containers.containerMap {
-		if time.Since(status.lastExecAt).Seconds() > float64(idleInterval) {
+		if time.Since(status.lastExecAt).Seconds() > idleInterval {
 			slog.Info("cleaning up idle container", "containerId", id)
 			for range 5 {
 				err := status.StopContainer(containerClient)
