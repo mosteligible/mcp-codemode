@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"log/slog"
 	"net"
@@ -19,13 +18,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-type thing struct {
-	item string
-}
-
 func main() {
-	items := map[string]*thing{}
-	fmt.Println("item 1", items["1"])
 	ctx := context.Background()
 	conf := config.NewConfig()
 	listen, err := net.Listen("tcp", conf.WorkerPort)

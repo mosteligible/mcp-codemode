@@ -44,6 +44,16 @@ func (c *ActiveContainers) Add(containerStatus *ContainerStatus) {
 	c.sessionToContainerMap[containerStatus.sessionId] = containerStatus.id
 }
 
+func (c *ActiveContainers) Get(sessionId types.SessionId) (types.ContainerId, bool) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	containerId, exists := c.sessionToContainerMap[sessionId]
+	if !exists {
+		return "", false
+	}
+	return containerId, exists
+}
+
 func (c *ActiveContainers) Remove(sessionId types.SessionId) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
@@ -91,12 +101,12 @@ func (c *ActiveContainers) ExecuteInSession(
 ) (types.ExecuteResult, error) {
 	slog.Info("executing in session", "sessionId", sessionId)
 	var containerStatus *ContainerStatus
-	containerId, exists := c.sessionToContainerMap[sessionId]
+	containerId, exists := c.Get(sessionId)
 	if !exists {
 		slog.Info("no active container for session, starting new container", "sessionId", sessionId)
 		containerStatus = NewContainerStatus(containerClient, sessionId, imageName)
-		c.containerMap[containerId] = containerStatus
-		c.sessionToContainerMap[sessionId] = containerId
+		c.containerMap[containerStatus.id] = containerStatus
+		c.sessionToContainerMap[sessionId] = containerStatus.id
 	} else {
 		containerStatus = c.containerMap[containerId]
 	}
