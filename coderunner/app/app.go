@@ -125,23 +125,27 @@ func (a *App) RunCode(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&codeRequest)
 	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(common.GetErrorResponseMessage("invalid request body"))
 		return
 	}
 
 	conn, err := a.getGrpcConnection()
 	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(common.GetErrorResponseMessage("no available worker connections"))
 		return
 	}
 	output := common.ExecuteCommand(r.Context(), conn, codeRequest.Code, codeRequest.Language)
 
+	w.Header().Set("Content-Type", "application/json")
 	if output.ErrorMessage != "" {
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}
-	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(output)
 }
 
@@ -150,6 +154,8 @@ func (a *App) Proxy(w http.ResponseWriter, r *http.Request) {
 	proxyId := r.Header.Get(constants.PROXY_HEADER_KEY)
 	proxyId = strings.TrimSpace(proxyId)
 	if proxyId == "" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(common.GetErrorResponseMessage("missing proxy ID"))
 		return
 	}

@@ -29,9 +29,9 @@ func SendRequest(
 		var pb []byte
 		if postBody != nil {
 			pb, err = json.Marshal(postBody)
-			req, err = http.NewRequest(method, url, bytes.NewBuffer(pb))
+			req, err = http.NewRequestWithContext(ctx, method, url, bytes.NewBuffer(pb))
 		} else {
-			req, err = http.NewRequest(method, url, nil)
+			req, err = http.NewRequestWithContext(ctx, method, url, nil)
 		}
 	default:
 		return nil, errors.New("Unsupported HTTP method")
