@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// UnaryInterceptorLogger records request latency and trace correlation for unary gRPC calls.
 func UnaryInterceptorLogger(
 	ctx context.Context,
 	req any,

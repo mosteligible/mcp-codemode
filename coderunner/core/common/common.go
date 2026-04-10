@@ -57,7 +57,7 @@ func GetTarget(r *http.Request, corrID string) (types.ProxyTarget, error) {
 	}
 }
 
-func ExecuteCommand(ctx context.Context, connection *workerclient.WorkerClient, instruction, language string) types.CommandOutput {
+func ExecuteCommand(ctx context.Context, connection *workerclient.WorkerClient, instruction, language, sessionId string) types.CommandOutput {
 	output := types.CommandOutput{}
 	// execute the command and capture the output and error
 	instruction = strings.TrimSpace(instruction)
@@ -70,6 +70,7 @@ func ExecuteCommand(ctx context.Context, connection *workerclient.WorkerClient, 
 		ctx, &pb.ExecuteCodeRequest{
 			Instruction: instruction,
 			Language:    language,
+			SessionId:   sessionId,
 		},
 	)
 	if err != nil {

@@ -26,6 +26,7 @@ type ExecuteCodeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Instruction   string                 `protobuf:"bytes,1,opt,name=instruction,proto3" json:"instruction,omitempty"`
 	Language      string                 `protobuf:"bytes,2,opt,name=language,proto3" json:"language,omitempty"`
+	SessionId     string                 `protobuf:"bytes,3,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -70,6 +71,13 @@ func (x *ExecuteCodeRequest) GetInstruction() string {
 func (x *ExecuteCodeRequest) GetLanguage() string {
 	if x != nil {
 		return x.Language
+	}
+	return ""
+}
+
+func (x *ExecuteCodeRequest) GetSessionId() string {
+	if x != nil {
+		return x.SessionId
 	}
 	return ""
 }
@@ -190,20 +198,23 @@ var File_agent_proto protoreflect.FileDescriptor
 
 const file_agent_proto_rawDesc = "" +
 	"\n" +
-	"\vagent.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\"R\n" +
+	"\vagent.proto\x12\x02pb\x1a\x1bgoogle/protobuf/empty.proto\"q\n" +
 	"\x12ExecuteCodeRequest\x12 \n" +
 	"\vinstruction\x18\x01 \x01(\tR\vinstruction\x12\x1a\n" +
-	"\blanguage\x18\x02 \x01(\tR\blanguage\"<\n" +
+	"\blanguage\x18\x02 \x01(\tR\blanguage\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x03 \x01(\tR\tsessionId\"<\n" +
 	"\fHealthStatus\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"`\n" +
 	"\x13ExecuteCodeResponse\x12\x1b\n" +
 	"\texit_code\x18\x01 \x01(\x05R\bexitCode\x12\x16\n" +
 	"\x06output\x18\x02 \x01(\tR\x06output\x12\x14\n" +
-	"\x05error\x18\x03 \x01(\tR\x05error2{\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error2\xc0\x01\n" +
 	"\x05Agent\x122\n" +
 	"\x06Status\x12\x16.google.protobuf.Empty\x1a\x10.pb.HealthStatus\x12>\n" +
-	"\vExecuteCode\x12\x16.pb.ExecuteCodeRequest\x1a\x17.pb.ExecuteCodeResponseB/Z-github.com/mosteligible/mcp-codemode/agent/pbb\x06proto3"
+	"\vExecuteCode\x12\x16.pb.ExecuteCodeRequest\x1a\x17.pb.ExecuteCodeResponse\x12C\n" +
+	"\x10ExecuteCodeFresh\x12\x16.pb.ExecuteCodeRequest\x1a\x17.pb.ExecuteCodeResponseB/Z-github.com/mosteligible/mcp-codemode/agent/pbb\x06proto3"
 
 var (
 	file_agent_proto_rawDescOnce sync.Once
@@ -227,10 +238,12 @@ var file_agent_proto_goTypes = []any{
 var file_agent_proto_depIdxs = []int32{
 	3, // 0: pb.Agent.Status:input_type -> google.protobuf.Empty
 	0, // 1: pb.Agent.ExecuteCode:input_type -> pb.ExecuteCodeRequest
-	1, // 2: pb.Agent.Status:output_type -> pb.HealthStatus
-	2, // 3: pb.Agent.ExecuteCode:output_type -> pb.ExecuteCodeResponse
-	2, // [2:4] is the sub-list for method output_type
-	0, // [0:2] is the sub-list for method input_type
+	0, // 2: pb.Agent.ExecuteCodeFresh:input_type -> pb.ExecuteCodeRequest
+	1, // 3: pb.Agent.Status:output_type -> pb.HealthStatus
+	2, // 4: pb.Agent.ExecuteCode:output_type -> pb.ExecuteCodeResponse
+	2, // 5: pb.Agent.ExecuteCodeFresh:output_type -> pb.ExecuteCodeResponse
+	3, // [3:6] is the sub-list for method output_type
+	0, // [0:3] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name

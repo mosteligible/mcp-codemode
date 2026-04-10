@@ -1,0 +1,26 @@
+services:
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  coderunner:
+    build:
+      context: ./coderunner
+      dockerfile: Dockerfile
+    env_file:
+      - ./coderunner/.env
+    limits:
+      cpus: '1.0'
+      memory: 2048M
+    depends_on:
+      redis:
+        condition: service_healthy
+    network_mode: "service:redis"

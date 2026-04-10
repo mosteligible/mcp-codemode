@@ -12,6 +12,10 @@ import (
 	"github.com/mosteligible/mcp-codemode/agent/core"
 	"github.com/mosteligible/mcp-codemode/agent/core/common"
 	"github.com/mosteligible/mcp-codemode/agent/states"
+	"github.com/mosteligible/mcp-codemode/agent/types"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -22,11 +26,13 @@ type Server struct {
 	config          *config.Config
 }
 
+// NewServer initializes the Docker-backed execution state used by the gRPC service.
 func NewServer(shutdownSignal chan struct{}) *Server {
 	slog.Info("starting server")
 	conf := config.NewConfig()
 	dockerClient, err := client.New(
 		client.FromEnv,
+		client.WithTraceProvider(noop.NewTracerProvider()),
 	)
 	if err != nil {
 		log.Fatal("could not create docker client: ", err.Error())
@@ -39,21 +45,6 @@ func NewServer(shutdownSignal chan struct{}) *Server {
 	slog.Info("docker found, starting server")
 	containerState := states.NewContainerState(dockerClient, conf.DockerImageName, conf.MinActive)
 
-	go func() {
-		ticker := time.NewTicker(time.Duration(conf.ActiveContainerCheckInterval) * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				slog.Info("setting minimum active containers")
-				containerState.Containers.SetActiveContainers(dockerClient, conf.MinActive, conf.DockerImageName)
-			case <-shutdownSignal:
-				return
-			}
-
-		}
-	}()
-
 	return &Server{
 		containerState:  containerState,
 		containerClient: dockerClient,
@@ -61,6 +52,7 @@ func NewServer(shutdownSignal chan struct{}) *Server {
 	}
 }
 
+// Status returns a lightweight health response for liveness and readiness checks.
 func (s *Server) Status(ctx context.Context, in *emptypb.Empty) (*pb.HealthStatus, error) {
 	return &pb.HealthStatus{
 		Code:    0,
@@ -68,7 +60,10 @@ func (s *Server) Status(ctx context.Context, in *emptypb.Empty) (*pb.HealthStatu
 	}, nil
 }
 
-func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*pb.ExecuteCodeResponse, error) {
+// ExecuteCode validates the request, applies a fixed timeout, and runs the code in a managed container.
+func (s *Server) ExecuteCode(
+	ctx context.Context, in *pb.ExecuteCodeRequest,
+) (*pb.ExecuteCodeResponse, error) {
 	if err := common.ValidateProgrammingLanguage(in.Language); err != nil {
 		return &pb.ExecuteCodeResponse{
 			ExitCode: 2,
@@ -80,8 +75,14 @@ func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*p
 	const maxExecutionTime = 30 * time.Second
 	timeoutContext, cancel := context.WithTimeout(ctx, maxExecutionTime)
 	defer cancel()
+	trace.SpanFromContext(timeoutContext).SetAttributes(
+		attribute.String("code.instruction", in.Instruction),
+		attribute.String("code.language", in.Language),
+	)
 	slog.Info("received code", "instruction", in.Instruction, "language", in.Language)
-	result, err := s.containerState.Containers.Execute(timeoutContext, s.containerClient, in.Instruction)
+	result, err := s.containerState.Execute(
+		timeoutContext, s.containerClient, in.Instruction, types.SessionId(in.SessionId),
+	)
 	if err != nil {
 		return &pb.ExecuteCodeResponse{
 			ExitCode: 2,
@@ -89,7 +90,9 @@ func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*p
 			Error:    err.Error(),
 		}, nil
 	}
-	slog.Info("processed Code", "result", result.Stdout, "error", result.Stderr, "exitCode", result.ExitCode)
+	slog.Info(
+		"processed Code", "result", result.Stdout, "error", result.Stderr, "exitCode", result.ExitCode,
+	)
 	return &pb.ExecuteCodeResponse{
 		ExitCode: int32(result.ExitCode),
 		Output:   result.Stdout,
@@ -97,15 +100,9 @@ func (s *Server) ExecuteCode(ctx context.Context, in *pb.ExecuteCodeRequest) (*p
 	}, nil
 }
 
+// HandleShutdown stops managed containers before the process exits.
 func (s *Server) HandleShutdown() {
 	slog.Info("shutting down server, cleaning up containers...")
-	for _, containerID := range s.containerState.Containers.Ids {
-		_, err := s.containerClient.ContainerStop(context.Background(), containerID, client.ContainerStopOptions{Timeout: nil})
-		if err != nil {
-			slog.Error("error stopping container " + containerID + ": " + err.Error())
-		} else {
-			slog.Info("stopped container " + containerID)
-		}
-	}
+	s.containerState.StopActiveContainers(s.containerClient)
 	slog.Info("all containers cleaned up, shutting down server")
 }

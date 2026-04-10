@@ -10,11 +10,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/pkg/stdcopy"
-	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
 	"github.com/mosteligible/mcp-codemode/agent/constants"
-	"github.com/mosteligible/mcp-codemode/agent/core/common"
 	"github.com/mosteligible/mcp-codemode/agent/types"
 )
 
@@ -25,159 +22,105 @@ var bufferPool = sync.Pool{
 	},
 }
 
-type ContainerId string
 type ActiveContainers struct {
-	Ids          []string
-	containerMap map[string]struct{}
-	lock         sync.RWMutex
+	containerMap          map[types.ContainerId]*ContainerStatus
+	sessionToContainerMap map[types.SessionId]types.ContainerId
+	lock                  sync.RWMutex
 }
 
 func NewActiveContainers(containerClient *client.Client, minActive int, imageName string) *ActiveContainers {
 	ac := ActiveContainers{
-		Ids:          []string{},
-		containerMap: make(map[string]struct{}),
+		containerMap:          make(map[types.ContainerId]*ContainerStatus),
+		sessionToContainerMap: make(map[types.SessionId]types.ContainerId),
 	}
-	ac.SetActiveContainers(containerClient, minActive, imageName)
 
 	return &ac
 }
 
-func (c *ActiveContainers) Add(id ContainerId) {
+func (c *ActiveContainers) Add(containerStatus *ContainerStatus) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	c.Ids = append(c.Ids, string(id))
+	c.containerMap[containerStatus.id] = containerStatus
+	c.sessionToContainerMap[containerStatus.sessionId] = containerStatus.id
 }
 
-func (c *ActiveContainers) Remove(id ContainerId) {
+func (c *ActiveContainers) Get(sessionId types.SessionId) (types.ContainerId, bool) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+	containerId, exists := c.sessionToContainerMap[sessionId]
+	if !exists {
+		return "", false
+	}
+	return containerId, exists
+}
+
+func (c *ActiveContainers) Remove(sessionId types.SessionId) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
-	for i, v := range c.Ids {
-		if v == string(id) {
-			c.Ids = append(c.Ids[:i], c.Ids[i+1:]...)
-			break
-		}
+	containerId, exists := c.sessionToContainerMap[sessionId]
+	if !exists {
+		return
 	}
+	delete(c.containerMap, containerId)
+	delete(c.sessionToContainerMap, sessionId)
 }
 
 func (c *ActiveContainers) Count() int {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
-	return len(c.Ids)
+	return len(c.containerMap)
 }
 
-func (c *ActiveContainers) Execute(ctx context.Context, containerClient *client.Client, instruction string) (types.ExecuteResult, error) {
+func (c *ActiveContainers) Execute(
+	ctx context.Context, containerClient *client.Client, instruction string, sessionId types.SessionId, imageName string,
+) (types.ExecuteResult, error) {
+	slog.Info("executing code", "sessionId", sessionId)
+	if sessionId != "" {
+		return c.ExecuteInSession(ctx, containerClient, sessionId, instruction, imageName)
+	}
 	// get random id from active containers
 	c.lock.RLock()
-	if len(c.Ids) == 0 {
+	if len(c.containerMap) == 0 {
 		c.lock.RUnlock()
 		return types.ExecuteResult{}, fmt.Errorf("no active containers available")
 	}
-	randindex := rand.Intn(len(c.Ids))
-	containerID := c.Ids[randindex]
+	keys := make([]types.ContainerId, 0, len(c.containerMap))
+	for k := range c.containerMap {
+		keys = append(keys, k)
+	}
+	randindex := rand.Intn(len(keys))
+	containerID := keys[randindex]
+
+	containerStatus := c.containerMap[containerID]
 	c.lock.RUnlock()
-
-	result, err := containerClient.ExecCreate(
-		ctx,
-		containerID,
-		client.ExecCreateOptions{
-			Cmd:          []string{"bash", "-c", instruction},
-			AttachStdout: true,
-			AttachStderr: true,
-			TTY:          false,
-		},
-	)
-
-	if err != nil {
-		return types.ExecuteResult{}, fmt.Errorf("error executing code: %s", err.Error())
-	}
-
-	attachResult, err := containerClient.ExecAttach(ctx, result.ID, client.ExecAttachOptions{TTY: false})
-	if err != nil {
-		return types.ExecuteResult{}, fmt.Errorf("error attaching to exec instance: %s", err.Error())
-	}
-	defer attachResult.Close()
-
-	select {
-	case <-ctx.Done():
-		return types.ExecuteResult{}, fmt.Errorf("execution timed out")
-	default:
-	}
-
-	stdout := bufferPool.Get().(*bytes.Buffer)
-	stderr := bufferPool.Get().(*bytes.Buffer)
-	defer func() {
-		stdout.Reset()
-		stderr.Reset()
-		bufferPool.Put(stderr)
-		bufferPool.Put(stdout)
-	}()
-
-	if _, err := stdcopy.StdCopy(stdout, stderr, attachResult.Reader); err != nil {
-		return types.ExecuteResult{}, fmt.Errorf("error copying output: %s", err.Error())
-	}
-
-	inspectResp, err := containerClient.ExecInspect(ctx, result.ID, client.ExecInspectOptions{})
-	if err != nil {
-		return types.ExecuteResult{}, fmt.Errorf("error inspecting exec instance: %s", err.Error())
-	}
-
-	return types.ExecuteResult{
-		ExitCode: inspectResp.ExitCode,
-		Stdout:   stdout.String(),
-		Stderr:   stderr.String(),
-	}, nil
+	return containerStatus.ExecuteCode(ctx, containerClient, instruction)
 }
 
-func (c *ActiveContainers) SetActiveContainers(containerClient *client.Client, minActive int, imageName string) {
-	// run in a goroutine at intervals to update the active containers
-	// where
-	containers, err := common.GetActiveContainerIds(containerClient)
-	if err != nil {
-		slog.Error("error listing containers: " + err.Error())
-		return
-	}
-
-	if len(containers) < minActive {
-		slog.Info("active containers below minimum, creating new container")
-		for range minActive - len(containers) {
-			newContainer, err := containerClient.ContainerCreate(
-				context.Background(),
-				client.ContainerCreateOptions{
-					Config: &container.Config{
-						Image: imageName,
-						Cmd:   []string{"sleep", "infinity"},
-					},
-				})
-			if err != nil {
-				slog.Error("error creating container: " + err.Error())
-				continue
-			}
-			if _, err := containerClient.ContainerStart(context.Background(), newContainer.ID, client.ContainerStartOptions{}); err != nil {
-				slog.Error("error starting container: " + err.Error())
-				continue
-			}
-			containers = append(containers, newContainer.ID)
+func (c *ActiveContainers) ExecuteInSession(
+	ctx context.Context, containerClient *client.Client, sessionId types.SessionId, instruction, imageName string,
+) (types.ExecuteResult, error) {
+	slog.Info("executing in session", "sessionId", sessionId)
+	var containerStatus *ContainerStatus
+	var err error
+	containerId, exists := c.Get(sessionId)
+	if !exists {
+		slog.Info("no active container for session, starting new container", "sessionId", sessionId)
+		containerStatus, err = NewContainerStatus(containerClient, sessionId, imageName)
+		if err != nil {
+			return types.ExecuteResult{}, err
 		}
+
+		slog.Info("created new container status", "containerStatus", containerStatus)
+
+		c.Add(containerStatus)
+	} else {
+		c.lock.RLock()
+		containerStatus = c.containerMap[containerId]
+		c.lock.RUnlock()
 	}
 
-	currentContainers := []string{}
-	containerMap := make(map[string]struct{})
-	seenItems := 0
-	for _, containerID := range containers {
-		currentContainers = append(currentContainers, containerID)
-		containerMap[containerID] = struct{}{}
-		if _, exists := c.containerMap[containerID]; exists {
-			seenItems++
-		}
-	}
-	if seenItems == len(currentContainers) {
-		return
-	}
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	c.Ids = currentContainers
-	c.containerMap = containerMap
+	slog.Info("attempting code execution", "containerStatus", containerStatus)
+	return containerStatus.ExecuteCode(ctx, containerClient, instruction)
 }
 
 type ContainerState struct {
@@ -213,25 +156,73 @@ func NewContainerState(containerClient *client.Client, imageName string, minActi
 		"imageName", imageName,
 	)
 
-	return &ContainerState{
+	cs := &ContainerState{
 		containerImageName: imageName,
 		MinActive:          minActive,
 		Containers:         NewActiveContainers(containerClient, minActive, imageName),
 	}
+
+	// goroutine to garbage collect idle containers every 60 seconds; idle time 60 seconds
+	go func() {
+		ticker := time.NewTicker(60 * time.Second)
+		for {
+			<-ticker.C
+			slog.Info("running idle container cleanup")
+			cs.CleanupIdleContainers(containerClient, 60*8) // idle interval of 8 minutes
+		}
+	}()
+
+	return cs
+}
+
+func (cs *ContainerState) Execute(
+	ctx context.Context, containerClient *client.Client, instruction string, sessionId types.SessionId,
+) (types.ExecuteResult, error) {
+	return cs.Containers.Execute(ctx, containerClient, instruction, sessionId, cs.containerImageName)
+}
+
+func (cs *ContainerState) StartContainer(containerClient *client.Client, sessionId types.SessionId) (types.ContainerId, error) {
+	containerStatus, err := NewContainerStatus(containerClient, sessionId, cs.containerImageName)
+	if err != nil {
+		return "", err
+	}
+
+	return containerStatus.id, nil
+}
+
+func (cs *ContainerState) StartContainerForUserSession(containerClient *client.Client, sessionId string) {
+	containerId, err := cs.StartContainer(containerClient, types.SessionId(sessionId))
+	if err != nil {
+		slog.Error("error starting container for user session", "sessionId", sessionId, "error", err.Error())
+		return
+	}
+	slog.Info("started container for user session", "sessionId", sessionId, "containerId", containerId)
 }
 
 func (cs *ContainerState) StopActiveContainers(containerClient *client.Client) {
-	containers, err := common.GetActiveContainerIds(containerClient)
-	if err != nil {
-		slog.Error("error listing containers: " + err.Error())
-		return
-	}
-
-	for _, containerID := range containers {
-		if _, err := containerClient.ContainerStop(context.Background(), containerID, client.ContainerStopOptions{}); err != nil {
-			slog.Error("error stopping container: " + err.Error())
+	for sessionId, containerId := range cs.Containers.sessionToContainerMap {
+		slog.Info("stopping container-session combination", "containerId", containerId, "sessionId", sessionId)
+		if _, err := containerClient.ContainerStop(context.Background(), string(containerId), client.ContainerStopOptions{}); err != nil {
+			slog.Error("error stopping container", "containerId", containerId, "sessionId", sessionId, "error", err.Error())
 			continue
 		}
-		slog.Info("stopped container: " + containerID)
+		cs.Containers.Remove(types.SessionId(sessionId))
+		slog.Info("stopped container", "containerId", containerId, "sessionId", sessionId)
+	}
+}
+
+func (cs *ContainerState) CleanupIdleContainers(containerClient *client.Client, idleInterval float64) {
+	for id, status := range cs.Containers.containerMap {
+		if time.Since(status.GetLastExecAt()).Seconds() > idleInterval {
+			slog.Info("cleaning up idle container", "containerId", id)
+			for range 5 {
+				err := status.StopContainer(containerClient)
+				if err == nil {
+					break
+				}
+			}
+			slog.Info("stopped idle container", "containerId", id)
+			cs.Containers.Remove(types.SessionId(status.sessionId))
+		}
 	}
 }

@@ -6,7 +6,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
 	github.com/modelcontextprotocol/go-sdk v1.4.1
-	github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260317041413-e40d1d28b312
+	github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260406214552-cd7b5a04bcf5
 	github.com/mosteligible/mcp-codemode/pkg v0.0.0-20260331025139-1cdafc944222
 	github.com/redis/go-redis/v9 v9.18.0
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.67.0

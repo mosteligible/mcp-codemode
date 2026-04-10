@@ -32,6 +32,7 @@ func main() {
 	}
 	defer shutdown(ctx)
 
+	// Tie process lifetime to OS termination signals so container cleanup runs on exit.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
@@ -39,6 +40,7 @@ func main() {
 	gserver := server.NewServer(shutdownSignal)
 	serverErr := make(chan error, 1)
 	go func() {
+		// Attach request logging and OpenTelemetry stats collection to every unary RPC.
 		grpcServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
 			interceptors.UnaryInterceptorLogger,
 		), grpc.StatsHandler(otelgrpc.NewServerHandler()))
@@ -50,6 +52,7 @@ func main() {
 		}
 	}()
 
+	// Exit on either an OS signal or a serve failure, and clean up active containers in both cases.
 	select {
 	case <-ctx.Done():
 		slog.Info("Shutting down server...")

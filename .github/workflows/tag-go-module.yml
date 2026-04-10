@@ -1,0 +1,89 @@
+name: Tag Go Module
+
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: Go module to tag
+        required: true
+        type: choice
+        options:
+          - agent-proto
+          - pkg
+          - agent
+          - coderunner
+      version:
+        description: Semantic version to tag, for example v0.1.0
+        required: true
+        type: string
+      ref:
+        description: Branch or commit to tag
+        required: true
+        default: main
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.ref }}
+
+      - name: Validate tag inputs
+        id: validate
+        env:
+          MODULE: ${{ inputs.module }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          case "$MODULE" in
+            agent-proto|pkg|agent|coderunner)
+              ;;
+            *)
+              echo "Unsupported module: $MODULE" >&2
+              exit 1
+              ;;
+          esac
+
+          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Version must look like v0.1.0" >&2
+            exit 1
+          fi
+
+          tag="$MODULE/$VERSION"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure tag does not already exist
+        env:
+          TAG: ${{ steps.validate.outputs.tag }}
+        run: |
+          git fetch origin --tags
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag already exists: $TAG" >&2
+            exit 1
+          fi
+
+      - name: Create and push tag
+        env:
+          PUSH_TOKEN: ${{ secrets.RELEASE_TAG_TOKEN }}
+          TAG: ${{ steps.validate.outputs.tag }}
+        run: |
+          if [[ -n "$PUSH_TOKEN" ]]; then
+            git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          fi
+
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "refs/tags/$TAG"
+
+      - name: Trigger agent binary release when using default token
+        if: inputs.module == 'agent' && secrets.RELEASE_TAG_TOKEN == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.validate.outputs.tag }}
+        run: |
+          gh workflow run release-agent.yml --ref main -f tag="$TAG"
