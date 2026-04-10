@@ -59,7 +59,7 @@ func (cs *ContainerStatus) StartContainer(
 		},
 	)
 	if err != nil {
-		slog.Error("error creating container: " + err.Error())
+		slog.Error("error creating container", "error", err.Error())
 		return "", err
 	}
 
@@ -75,6 +75,9 @@ func (cs *ContainerStatus) StartContainer(
 func (cs *ContainerStatus) ExecuteCode(
 	ctx context.Context, containerClient *client.Client, instruction string,
 ) (types.ExecuteResult, error) {
+	defer cs.UpdateLastExecAt()
+	cs.lock.RLock()
+	defer cs.lock.RUnlock()
 	slog.Info("executing code for container", "container-id", cs.id)
 	result, err := containerClient.ExecCreate(
 		ctx,
@@ -123,7 +126,6 @@ func (cs *ContainerStatus) ExecuteCode(
 		return types.ExecuteResult{}, fmt.Errorf("error inspecting exec instance: %s", err.Error())
 	}
 
-	cs.UpdateLastExecAt()
 	return types.ExecuteResult{
 		ExitCode: inspectResp.ExitCode,
 		Stdout:   stdout.String(),
@@ -139,6 +141,12 @@ func (cs *ContainerStatus) UpdateLastExecAt() {
 	cs.lock.Lock()
 	defer cs.lock.Unlock()
 	cs.lastExecAt = time.Now()
+}
+
+func (cs *ContainerStatus) GetLastExecAt() time.Time {
+	cs.lock.RLock()
+	defer cs.lock.RUnlock()
+	return cs.lastExecAt
 }
 
 func (cs *ContainerStatus) StopContainer(containerClient *client.Client) error {

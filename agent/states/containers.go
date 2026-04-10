@@ -213,7 +213,7 @@ func (cs *ContainerState) StopActiveContainers(containerClient *client.Client) {
 
 func (cs *ContainerState) CleanupIdleContainers(containerClient *client.Client, idleInterval float64) {
 	for id, status := range cs.Containers.containerMap {
-		if time.Since(status.lastExecAt).Seconds() > idleInterval {
+		if time.Since(status.GetLastExecAt()).Seconds() > idleInterval {
 			slog.Info("cleaning up idle container", "containerId", id)
 			for range 5 {
 				err := status.StopContainer(containerClient)
