@@ -91,13 +91,14 @@ jobs:
             major_bump=0
             minor_bump=0
             patch_bump=0
+            conventional_commit_pattern='^([a-z]+)(\([^)]+\))?(!)?:[[:space:]].+'
 
             while IFS= read -r -d '' subject && IFS= read -r -d '' body; do
               if [[ -z "$subject" && -z "$body" ]]; then
                 continue
               fi
 
-              if [[ "$subject" =~ ^([a-z]+)(\([^)]+\))?(!)?:[[:space:]].+ ]]; then
+              if [[ "$subject" =~ $conventional_commit_pattern ]]; then
                 commit_type="${BASH_REMATCH[1]}"
                 breaking_marker="${BASH_REMATCH[3]}"
 
