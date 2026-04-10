@@ -1,10 +1,10 @@
-name: Tag Go Module
+name: Release Go Module
 
 on:
   workflow_dispatch:
     inputs:
       module:
-        description: Go module to tag
+        description: Go module to release
         required: true
         type: choice
         options:
@@ -12,12 +12,12 @@ on:
           - pkg
           - agent
           - coderunner
-      version:
-        description: Semantic version to tag, for example v0.1.0
-        required: true
+      version_override:
+        description: Optional explicit version like v0.1.0; leave empty to infer from merged PR titles
+        required: false
         type: string
       ref:
-        description: Branch or commit to tag
+        description: Branch or commit to release from
         required: true
         default: main
         type: string
@@ -25,9 +25,23 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-go-module-${{ inputs.module }}
+  cancel-in-progress: false
+
 jobs:
-  tag:
+  prepare:
     runs-on: ubuntu-latest
+    outputs:
+      module: ${{ steps.meta.outputs.module }}
+      previous_tag: ${{ steps.meta.outputs.previous_tag }}
+      release_bump: ${{ steps.meta.outputs.release_bump }}
+      release_name: ${{ steps.meta.outputs.release_name }}
+      release_tag: ${{ steps.meta.outputs.release_tag }}
+      release_version: ${{ steps.meta.outputs.release_version }}
+      publish_agent_release: ${{ steps.meta.outputs.publish_agent_release }}
+      target_sha: ${{ steps.meta.outputs.target_sha }}
+      version_source: ${{ steps.meta.outputs.version_source }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -35,12 +49,14 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref }}
 
-      - name: Validate tag inputs
-        id: validate
+      - name: Compute release metadata
+        id: meta
         env:
           MODULE: ${{ inputs.module }}
-          VERSION: ${{ inputs.version }}
+          VERSION_OVERRIDE: ${{ inputs.version_override }}
         run: |
+          set -euo pipefail
+
           case "$MODULE" in
             agent-proto|pkg|agent|coderunner)
               ;;
@@ -50,40 +66,236 @@ jobs:
               ;;
           esac
 
-          if [[ ! "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "Version must look like v0.1.0" >&2
-            exit 1
-          fi
-
-          tag="$MODULE/$VERSION"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-
-      - name: Ensure tag does not already exist
-        env:
-          TAG: ${{ steps.validate.outputs.tag }}
-        run: |
           git fetch origin --tags
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag already exists: $TAG" >&2
+
+          target_sha="$(git rev-parse HEAD)"
+          previous_tag="$(git tag --merged "$target_sha" --list "${MODULE}/v[0-9]*.[0-9]*.[0-9]*" --sort=-version:refname | head -n1 || true)"
+
+          release_bump=""
+          version_source="inferred"
+
+          if [[ -n "$VERSION_OVERRIDE" ]]; then
+            if [[ ! "$VERSION_OVERRIDE" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "version_override must look like v0.1.0" >&2
+              exit 1
+            fi
+
+            release_version="$VERSION_OVERRIDE"
+            version_source="override"
+          else
+            range_spec="$target_sha"
+            if [[ -n "$previous_tag" ]]; then
+              range_spec="${previous_tag}..${target_sha}"
+            fi
+
+            major_bump=0
+            minor_bump=0
+            patch_bump=0
+
+            while IFS= read -r -d '' subject && IFS= read -r -d '' body; do
+              if [[ -z "$subject" && -z "$body" ]]; then
+                continue
+              fi
+
+              if [[ "$subject" =~ ^([a-z]+)(\([^)]+\))?(!)?:[[:space:]].+ ]]; then
+                commit_type="${BASH_REMATCH[1]}"
+                breaking_marker="${BASH_REMATCH[3]}"
+
+                if [[ -n "$breaking_marker" ]] || grep -Eq '(^|[[:space:]])BREAKING CHANGE:' <<<"$body"; then
+                  major_bump=1
+                  continue
+                fi
+
+                case "$commit_type" in
+                  feat)
+                    minor_bump=1
+                    ;;
+                  fix|chore|refactor|perf|build|ci|docs|test|style)
+                    patch_bump=1
+                    ;;
+                esac
+              elif grep -Eq '(^|[[:space:]])BREAKING CHANGE:' <<<"$body"; then
+                major_bump=1
+              fi
+            done < <(git log --first-parent --format='%s%x00%b%x00' "$range_spec")
+
+            if (( major_bump )); then
+              release_bump="major"
+            elif (( minor_bump )); then
+              release_bump="minor"
+            elif (( patch_bump )); then
+              release_bump="patch"
+            else
+              if [[ -n "$previous_tag" ]]; then
+                echo "No release-signaling commits found since ${previous_tag}. Use a PR title like feat:, fix:, or chore:, or provide version_override." >&2
+              else
+                echo "No release-signaling commits found in history. Use a PR title like feat:, fix:, or chore:, or provide version_override." >&2
+              fi
+              exit 1
+            fi
+
+            base_version="0.0.0"
+            if [[ -n "$previous_tag" ]]; then
+              base_version="${previous_tag#${MODULE}/v}"
+            fi
+
+            IFS='.' read -r major minor patch <<< "$base_version"
+
+            case "$release_bump" in
+              patch)
+                patch=$((patch + 1))
+                ;;
+              minor)
+                minor=$((minor + 1))
+                patch=0
+                ;;
+              major)
+                major=$((major + 1))
+                minor=0
+                patch=0
+                ;;
+            esac
+
+            release_version="v${major}.${minor}.${patch}"
+          fi
+
+          release_tag="${MODULE}/${release_version}"
+          if git rev-parse "$release_tag" >/dev/null 2>&1; then
+            echo "Tag already exists: $release_tag" >&2
             exit 1
           fi
+
+          if [[ "$MODULE" == "agent" ]]; then
+            release_name="Agent ${release_version}"
+            publish_agent_release="true"
+          else
+            release_name="${MODULE} ${release_version}"
+            publish_agent_release="false"
+          fi
+
+          {
+            echo "module=$MODULE"
+            echo "previous_tag=$previous_tag"
+            echo "release_bump=$release_bump"
+            echo "release_name=$release_name"
+            echo "release_tag=$release_tag"
+            echo "release_version=$release_version"
+            echo "publish_agent_release=$publish_agent_release"
+            echo "target_sha=$target_sha"
+            echo "version_source=$version_source"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Summarize planned release
+        env:
+          MODULE: ${{ steps.meta.outputs.module }}
+          PREVIOUS_TAG: ${{ steps.meta.outputs.previous_tag }}
+          RELEASE_BUMP: ${{ steps.meta.outputs.release_bump }}
+          RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
+          RELEASE_VERSION: ${{ steps.meta.outputs.release_version }}
+          TARGET_SHA: ${{ steps.meta.outputs.target_sha }}
+          VERSION_SOURCE: ${{ steps.meta.outputs.version_source }}
+        run: |
+          {
+            echo "### Planned release"
+            echo "- Module: ${MODULE}"
+            echo "- Target SHA: ${TARGET_SHA}"
+            echo "- Previous tag: ${PREVIOUS_TAG:-none}"
+            echo "- Version source: ${VERSION_SOURCE}"
+            if [[ -n "$RELEASE_BUMP" ]]; then
+              echo "- Derived bump: ${RELEASE_BUMP}"
+            fi
+            echo "- New tag: ${RELEASE_TAG}"
+            echo "- Version: ${RELEASE_VERSION}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build_agent:
+    needs: prepare
+    if: needs.prepare.outputs.publish_agent_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.target_sha }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: agent/go.mod
+
+      - name: Build agent release archives
+        working-directory: agent
+        run: |
+          set -euo pipefail
+
+          mkdir -p ../dist/agent-linux-amd64 ../dist/agent-linux-arm64
+
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o ../dist/agent-linux-amd64/agent .
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags='-s -w' -o ../dist/agent-linux-arm64/agent .
+
+          tar -czf ../dist/agent_linux_amd64.tar.gz -C ../dist/agent-linux-amd64 agent
+          tar -czf ../dist/agent_linux_arm64.tar.gz -C ../dist/agent-linux-arm64 agent
+
+      - name: Upload agent release archives
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-release-assets
+          path: |
+            dist/agent_linux_amd64.tar.gz
+            dist/agent_linux_arm64.tar.gz
+
+  publish:
+    needs:
+      - prepare
+      - build_agent
+    if: ${{ always() && needs.prepare.result == 'success' && (needs.build_agent.result == 'success' || needs.build_agent.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.prepare.outputs.target_sha }}
+
+      - name: Fetch tags
+        run: git fetch origin --tags
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Create and push tag
         env:
-          PUSH_TOKEN: ${{ secrets.RELEASE_TAG_TOKEN }}
-          TAG: ${{ steps.validate.outputs.tag }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.release_tag }}
+          TARGET_SHA: ${{ needs.prepare.outputs.target_sha }}
         run: |
-          if [[ -n "$PUSH_TOKEN" ]]; then
-            git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          set -euo pipefail
+
+          if git rev-parse "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "Tag already exists: $RELEASE_TAG" >&2
+            exit 1
           fi
 
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "refs/tags/$TAG"
+          git tag -a "$RELEASE_TAG" "$TARGET_SHA" -m "Release $RELEASE_TAG"
+          git push origin "refs/tags/$RELEASE_TAG"
 
-      - name: Trigger agent binary release when using default token
-        if: inputs.module == 'agent' && secrets.RELEASE_TAG_TOKEN == ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.validate.outputs.tag }}
-        run: |
-          gh workflow run release-agent.yml --ref main -f tag="$TAG"
+      - name: Download agent release archives
+        if: needs.prepare.outputs.publish_agent_release == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: agent-release-assets
+          path: release-assets
+
+      - name: Publish GitHub release
+        if: needs.prepare.outputs.publish_agent_release == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.release_tag }}
+          name: ${{ needs.prepare.outputs.release_name }}
+          generate_release_notes: true
+          make_latest: true
+          files: |
+            release-assets/agent_linux_amd64.tar.gz
+            release-assets/agent_linux_arm64.tar.gz
