@@ -101,13 +101,16 @@ func (c *ActiveContainers) ExecuteInSession(
 ) (types.ExecuteResult, error) {
 	slog.Info("executing in session", "sessionId", sessionId)
 	var containerStatus *ContainerStatus
+	var err error
 	containerId, exists := c.Get(sessionId)
 	if !exists {
 		slog.Info("no active container for session, starting new container", "sessionId", sessionId)
-		containerStatus, err := NewContainerStatus(containerClient, sessionId, imageName)
+		containerStatus, err = NewContainerStatus(containerClient, sessionId, imageName)
 		if err != nil {
 			return types.ExecuteResult{}, err
 		}
+
+		slog.Info("created new container status", "containerStatus", containerStatus)
 
 		c.Add(containerStatus)
 	} else {
@@ -116,6 +119,7 @@ func (c *ActiveContainers) ExecuteInSession(
 		c.lock.RUnlock()
 	}
 
+	slog.Info("attempting code execution", "containerStatus", containerStatus)
 	return containerStatus.ExecuteCode(ctx, containerClient, instruction)
 }
 
