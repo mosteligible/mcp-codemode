@@ -104,7 +104,11 @@ func (c *ActiveContainers) ExecuteInSession(
 	containerId, exists := c.Get(sessionId)
 	if !exists {
 		slog.Info("no active container for session, starting new container", "sessionId", sessionId)
-		containerStatus = NewContainerStatus(containerClient, sessionId, imageName)
+		containerStatus, err := NewContainerStatus(containerClient, sessionId, imageName)
+		if err != nil {
+			return types.ExecuteResult{}, err
+		}
+
 		c.Add(containerStatus)
 	} else {
 		c.lock.RLock()
@@ -174,7 +178,11 @@ func (cs *ContainerState) Execute(
 }
 
 func (cs *ContainerState) StartContainer(containerClient *client.Client, sessionId types.SessionId) (types.ContainerId, error) {
-	containerStatus := NewContainerStatus(containerClient, sessionId, cs.containerImageName)
+	containerStatus, err := NewContainerStatus(containerClient, sessionId, cs.containerImageName)
+	if err != nil {
+		return "", err
+	}
+
 	return containerStatus.id, nil
 }
 
@@ -204,8 +212,8 @@ func (cs *ContainerState) CleanupIdleContainers(containerClient *client.Client, 
 			slog.Info("cleaning up idle container", "containerId", id)
 			for range 5 {
 				err := status.StopContainer(containerClient)
-				if err != nil {
-					continue
+				if err == nil {
+					break
 				}
 			}
 			slog.Info("stopped idle container: " + string(id))

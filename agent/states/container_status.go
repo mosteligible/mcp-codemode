@@ -25,7 +25,7 @@ type ContainerStatus struct {
 	lock       *sync.RWMutex
 }
 
-func NewContainerStatus(containerClient *client.Client, sessionId types.SessionId, imageName string) *ContainerStatus {
+func NewContainerStatus(containerClient *client.Client, sessionId types.SessionId, imageName string) (*ContainerStatus, error) {
 	cs := &ContainerStatus{
 		sessionId:  sessionId,
 		imageName:  imageName,
@@ -33,17 +33,14 @@ func NewContainerStatus(containerClient *client.Client, sessionId types.SessionI
 		startedAt:  time.Now(),
 		lock:       &sync.RWMutex{},
 	}
-	for range 5 {
-		containerId, err := cs.StartContainer(context.Background(), containerClient)
-		if err != nil {
-			slog.Error("error starting container", "error", err.Error())
-		} else {
-			slog.Info("container started", "container-id", containerId)
-			cs.id = containerId
-			break
-		}
+	containerId, err := cs.StartContainer(context.Background(), containerClient)
+	if err != nil {
+		slog.Error("error starting container", "error", err.Error())
+		return nil, fmt.Errorf("could not start container")
 	}
-	return cs
+	slog.Info("container started", "container-id", containerId)
+	cs.id = containerId
+	return cs, nil
 }
 
 func (cs *ContainerStatus) StartContainer(
