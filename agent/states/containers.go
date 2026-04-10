@@ -201,12 +201,13 @@ func (cs *ContainerState) StartContainerForUserSession(containerClient *client.C
 
 func (cs *ContainerState) StopActiveContainers(containerClient *client.Client) {
 	for sessionId, containerId := range cs.Containers.sessionToContainerMap {
+		slog.Info("stopping container-session combination", "containerId", containerId, "sessionId", sessionId)
 		if _, err := containerClient.ContainerStop(context.Background(), string(containerId), client.ContainerStopOptions{}); err != nil {
-			slog.Error("error stopping container: " + err.Error())
+			slog.Error("error stopping container", "containerId", containerId, "sessionId", sessionId, "error", err.Error())
 			continue
 		}
 		cs.Containers.Remove(types.SessionId(sessionId))
-		slog.Info("stopped container: " + string(containerId))
+		slog.Info("stopped container", "containerId", containerId, "sessionId", sessionId)
 	}
 }
 
@@ -220,7 +221,7 @@ func (cs *ContainerState) CleanupIdleContainers(containerClient *client.Client, 
 					break
 				}
 			}
-			slog.Info("stopped idle container: " + string(id))
+			slog.Info("stopped idle container", "containerId", id)
 			cs.Containers.Remove(types.SessionId(status.sessionId))
 		}
 	}

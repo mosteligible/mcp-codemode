@@ -149,5 +149,10 @@ func (cs *ContainerStatus) StopContainer(containerClient *client.Client) error {
 		slog.Error("error stopping container", "container-id", cs.id, "error", err.Error())
 		return err
 	}
+	_, err = containerClient.ContainerRemove(context.Background(), string(cs.id), client.ContainerRemoveOptions{})
+	if err != nil {
+		slog.Error("error removing container", "container-id", cs.id, "error", err.Error())
+		return err
+	}
 	return nil
 }
