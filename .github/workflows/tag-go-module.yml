@@ -13,7 +13,7 @@ on:
           - agent
           - coderunner
       version_override:
-        description: Optional explicit version like v0.1.0; leave empty to infer from merged PR titles
+        description: Optional explicit version like v0.1.0; leave empty to infer from first-parent commit subjects, typically squash commit titles
         required: false
         type: string
       ref:
@@ -128,9 +128,9 @@ jobs:
               release_bump="patch"
             else
               if [[ -n "$previous_tag" ]]; then
-                echo "No release-signaling commits found since ${previous_tag}. Use a PR title like feat:, fix:, or chore:, or provide version_override." >&2
+                echo "No release-signaling commits found since ${previous_tag}. Use first-parent commit subjects like feat:, fix:, or chore:, typically via squash commit titles, or provide version_override." >&2
               else
-                echo "No release-signaling commits found in history. Use a PR title like feat:, fix:, or chore:, or provide version_override." >&2
+                echo "No release-signaling commits found in history. Use first-parent commit subjects like feat:, fix:, or chore:, typically via squash commit titles, or provide version_override." >&2
               fi
               exit 1
             fi
