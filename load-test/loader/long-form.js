@@ -22,5 +22,7 @@ export default function() {
 	runPayload(payload, {
 		suite: 'long-form',
 		duration_seconds: String(payload.durationSeconds),
+	}, {
+		strategy: 'vu',
 	});
 }

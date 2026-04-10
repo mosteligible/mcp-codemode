@@ -5,6 +5,7 @@ import { Rate } from 'k6/metrics';
 
 import { buildRequestParams, buildRunUrl, getThinkTimeSeconds } from './config.js';
 import { getPayloadProfile, pickMixedPayload } from './payloads.js';
+import { buildSessionContext } from './session.js';
 
 export const invalidJsonResponses = new Rate('invalid_json_responses');
 export const missingOutputResponses = new Rate('missing_output_responses');
@@ -23,20 +24,31 @@ function validateResponse(payload, response, parsed, tags) {
 	return responseShapeOk;
 }
 
-export function runPayload(payload, extraTags = {}) {
+
+export function runPayload(payload, extraTags = {}, sessionOptions = {}) {
+	const sessionContext = buildSessionContext({
+		suite: extraTags.suite,
+		...sessionOptions,
+	});
 	const tags = {
 		endpoint: 'run',
 		workload: payload.name,
 		language: payload.language,
+		session_mode: sessionContext.mode,
 		...extraTags,
 	};
 
+	const requestBody = {
+		code: payload.code,
+		language: payload.language,
+	};
+	if (sessionContext.sessionId !== '') {
+		requestBody.sessionId = sessionContext.sessionId;
+	}
+
 	const response = http.post(
 		buildRunUrl(),
-		JSON.stringify({
-			code: payload.code,
-			language: payload.language,
-		}),
+		JSON.stringify(requestBody),
 		buildRequestParams(tags),
 	);
 
@@ -69,9 +81,9 @@ export function runPayload(payload, extraTags = {}) {
 }
 
 export function runNamedPayload(name, extraTags = {}) {
-	return runPayload(getPayloadProfile(name), extraTags);
+	return runPayload(getPayloadProfile(name), extraTags, { strategy: 'vu' });
 }
 
 export function runMixedPayload(extraTags = {}) {
-	return runPayload(pickMixedPayload(exec.scenario.iterationInTest), extraTags);
+	return runPayload(pickMixedPayload(exec.scenario.iterationInTest), extraTags, { strategy: 'pool' });
 }

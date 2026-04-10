@@ -1,6 +1,6 @@
 # k6 loader for coderunner
 
-This folder contains the first k6-based load test harness for the coderunner `POST /run` endpoint only. It does not include direct gRPC tests.
+This folder contains the k6-based load test harness for the coderunner `POST /run` endpoint only. It does not include direct gRPC tests.
 
 ## Scripts
 
@@ -16,11 +16,26 @@ The runner endpoint expects this JSON body:
 ```json
 {
   "code": "printf 'short-ok\\n'",
-  "language": "bash"
+  "language": "bash",
+  "sessionId": "k6-mixed-soak-session-0"
 }
 ```
 
 The current agent executes the `code` field through `bash -c`, so the built-in workload profiles send shell commands. The medium, long, and long-form profiles use shell commands that invoke Python inside the container because the default agent image already includes Python.
+
+The loader is now session-aware by default. It sends `sessionId` in the request body so the agent can bind each logical user session to a dedicated container.
+
+Default session behavior by scenario:
+
+- `smoke.js`: one session per VU
+- `mixed-ramp.js`: fixed session pool shared by incoming requests
+- `mixed-soak.js`: fixed session pool shared by incoming requests
+- `long-form.js`: one session per VU
+
+This is intentional:
+
+- constant-VU tests map naturally to one session per VU
+- arrival-rate tests need a stable pool of user sessions instead of creating a new session every time k6 adds worker VUs
 
 ## Default workload mix
 
@@ -57,6 +72,10 @@ CODERUNNER_BASE_URL=http://machine-1.local:8080 k6 run load-test/loader/mixed-ra
 - `CODERUNNER_RUN_PATH`: request path, default `/run`
 - `CODERUNNER_REQUEST_TIMEOUT`: k6 request timeout, default `35s`
 - `THINK_TIME_SECONDS`: optional sleep after each request, default `0`
+- `SESSION_ID_ENABLED`: whether to include `sessionId` in the payload, default `true`
+- `SESSION_ID_MODE`: fallback session mode for custom scripts, default `pool`
+- `SESSION_POOL_SIZE`: number of logical sessions for pool-based tests, default `8`
+- `SESSION_PREFIX`: prefix for generated session IDs, default `k6`
 - `MEDIUM_PYTHON_ITERATIONS`: medium workload intensity, default `4000000`
 - `LONG_BUSY_SECONDS`: long workload duration target, default `25`
 - `LONG_FORM_MIN_SECONDS`: minimum command duration for `long-form.js`, default `5`
@@ -95,6 +114,8 @@ Long-form scenario tuning:
 - `LONG_FORM_MAX_SECONDS`
 
 The long-form workload uses a time-bounded compute loop instead of `sleep`, so it is better for exposing CPU bottlenecks on the agent machine.
+
+If you want to avoid reusing session-bound containers across separate test runs before the agent's idle cleanup removes them, set a unique `SESSION_PREFIX` per run.
 
 ## Current checks
 

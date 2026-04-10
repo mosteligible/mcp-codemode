@@ -22,6 +22,28 @@ function integerFromEnv(name, fallback) {
 	return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function booleanFromEnv(name, fallback) {
+	const value = __ENV[name];
+	if (typeof value !== 'string') {
+		return fallback;
+	}
+
+	switch (value.trim().toLowerCase()) {
+	case '1':
+	case 'true':
+	case 'yes':
+	case 'on':
+		return true;
+	case '0':
+	case 'false':
+	case 'no':
+	case 'off':
+		return false;
+	default:
+		return fallback;
+	}
+}
+
 export function getBaseUrl() {
 	return stringFromEnv('CODERUNNER_BASE_URL', DEFAULT_BASE_URL);
 }
@@ -40,6 +62,23 @@ export function getRequestTimeout() {
 
 export function getThinkTimeSeconds() {
 	return numberFromEnv('THINK_TIME_SECONDS', 0);
+}
+
+export function includeSessionIdInPayload() {
+	return booleanFromEnv('SESSION_ID_ENABLED', true);
+}
+
+export function getSessionMode() {
+	return stringFromEnv('SESSION_ID_MODE', 'pool');
+}
+
+export function getSessionPoolSize() {
+	const poolSize = integerFromEnv('SESSION_POOL_SIZE', 8);
+	return poolSize > 0 ? poolSize : 1;
+}
+
+export function getSessionPrefix() {
+	return stringFromEnv('SESSION_PREFIX', 'k6');
 }
 
 export function buildRequestParams(tags = {}) {
