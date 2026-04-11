@@ -14,7 +14,7 @@
     "@modelcontextprotocol/sdk": "^1.27.1",
     "ai": "^6.0.134",
     "lucide-react": "^0.577.0",
-    "next": "16.2.1",
+    "next": "16.2.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "uuid": "^13.0.0",
@@ -29,5 +29,11 @@
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4",
     "typescript": "^5"
+  },
+  "pnpm": {
+    "overrides": {
+      "@hono/node-server": "1.19.13",
+      "hono": "4.12.12"
+    }
   }
 }
