@@ -42,8 +42,12 @@ github.com/modelcontextprotocol/go-sdk v1.4.1 h1:M4x9GyIPj+HoIlHNGpK2hq5o3BFhC+7
 github.com/modelcontextprotocol/go-sdk v1.4.1/go.mod h1:Bo/mS87hPQqHSRkMv4dQq1XCu6zv4INdXnFZabkNU6s=
 github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260406214552-cd7b5a04bcf5 h1:wH6dUgXx8wAYF/p14geB/whDwejrCXgkL2XPmBXblkw=
 github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260406214552-cd7b5a04bcf5/go.mod h1:w4hemaaoC787T7bdeAApyeG7qyyjugyVQBVndeU0NQ4=
+github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260411195225-f5f97a56abd1 h1:wM7uaY2O05l3qs3ZfyP5QUUahnTWA0AjvwrpDTggUyY=
+github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260411195225-f5f97a56abd1/go.mod h1:w4hemaaoC787T7bdeAApyeG7qyyjugyVQBVndeU0NQ4=
 github.com/mosteligible/mcp-codemode/pkg v0.0.0-20260331025139-1cdafc944222 h1:ht3Ycy70ihMC8p7W6WccAb+ZgYK2BX5h2LmXwHpsaro=
 github.com/mosteligible/mcp-codemode/pkg v0.0.0-20260331025139-1cdafc944222/go.mod h1:xDK64tHJrSwqwFaPMyqdvDiNa4kDr6gZfQ77q2jGF3Q=
+github.com/mosteligible/mcp-codemode/pkg v0.0.0-20260411195225-f5f97a56abd1 h1:PVA7zhpUMmMRa745F7NRbk+9EK0Q7Dyrk8SCCFiLV84=
+github.com/mosteligible/mcp-codemode/pkg v0.0.0-20260411195225-f5f97a56abd1/go.mod h1:xDK64tHJrSwqwFaPMyqdvDiNa4kDr6gZfQ77q2jGF3Q=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/redis/go-redis/v9 v9.18.0 h1:pMkxYPkEbMPwRdenAzUNyFNrDgHx9U+DrBabWNfSRQs=

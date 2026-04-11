@@ -41,6 +41,8 @@ github.com/moby/moby/client v0.3.0 h1:UUGL5okry+Aomj3WhGt9Aigl3ZOxZGqR7XPo+RLPlK
 github.com/moby/moby/client v0.3.0/go.mod h1:HJgFbJRvogDQjbM8fqc1MCEm4mIAGMLjXbgwoZp6jCQ=
 github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260405033421-18ef72e29e02 h1:uHEfoIRtoE6DWkVEIOi4OHsOMY4Nt7dNNiFVsbxq37c=
 github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260405033421-18ef72e29e02/go.mod h1:w4hemaaoC787T7bdeAApyeG7qyyjugyVQBVndeU0NQ4=
+github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260411195225-f5f97a56abd1 h1:wM7uaY2O05l3qs3ZfyP5QUUahnTWA0AjvwrpDTggUyY=
+github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260411195225-f5f97a56abd1/go.mod h1:w4hemaaoC787T7bdeAApyeG7qyyjugyVQBVndeU0NQ4=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
 github.com/opencontainers/go-digest v1.0.0/go.mod h1:0JzlMkj0TRzQZfJkVvzbP0HBR3IKzErnv2BNG4W4MAM=
 github.com/opencontainers/image-spec v1.1.1 h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJwooC2xJA040=

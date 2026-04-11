@@ -1,8 +1,8 @@
 package app
 
 import (
-	"context"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -32,6 +32,18 @@ func NewMcpApp(logger *slog.Logger) *McpApp {
 
 func (app *McpApp) Start() error {
 	tools.NewGithubTool(app.server)
-	app.logger.Info("starting mcp server.")
-	return app.server.Run(context.Background(), &mcp.StreamableServerTransport{})
+
+	handler := mcp.NewStreamableHTTPHandler(
+		func(r *http.Request) *mcp.Server {
+			return app.server
+		},
+		&mcp.StreamableHTTPOptions{
+			Stateless:    true,
+			JSONResponse: true,
+		},
+	) // what to do here, I don't understand its usage
+	mux := http.NewServeMux()
+	mux.Handle("/mcp", handler)
+	app.logger.Info("starting mcp server on port :8081")
+	return http.ListenAndServe(":8081", handler)
 }
