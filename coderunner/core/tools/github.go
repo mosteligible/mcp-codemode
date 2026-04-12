@@ -9,8 +9,22 @@ import (
 
 type GithubToolInput struct {
 	UserName string `json:"user_name" jsonschema:"The GitHub username to interact with."`
-	PerPage  int    `json:"per_page" jsonschema:"The number of items to return per page."`
-	MaxPages int    `json:"max_pages" jsonschema:"The maximum number of pages to return."`
+	PerPage  *int   `json:"per_page,omitempty" jsonschema:"The number of items to return per page."`
+	MaxPages *int   `json:"max_pages,omitempty" jsonschema:"The maximum number of pages to return."`
+}
+
+func (i *GithubToolInput) GetPerPage() int {
+	if i.PerPage == nil || *i.PerPage < 1 {
+		return 1
+	}
+	return *i.PerPage
+}
+
+func (i *GithubToolInput) GetMaxPages() int {
+	if i.MaxPages == nil || *i.MaxPages < 1 {
+		return 1
+	}
+	return *i.MaxPages
 }
 
 type GithubTool struct {
@@ -50,10 +64,7 @@ type ListUserReposOutput struct {
 }
 
 func (gh *GithubTool) ListUserRepos(ctx context.Context, req *mcp.CallToolRequest, input ListUserReposInput) (*mcp.CallToolResult, ListUserReposOutput, error) {
-	maxPages := 1
-	if input.MaxPages > 1 {
-		maxPages = input.MaxPages
-	}
+	maxPages := input.GetMaxPages()
 
 	options := &github.RepositoryListByUserOptions{}
 	var repoNames []string
@@ -89,7 +100,7 @@ type ListUserPullRequestsOutput struct {
 }
 
 func (gh *GithubTool) ListUserPullRequests(ctx context.Context, req *mcp.CallToolRequest, input ListUserPullRequestsInput) (*mcp.CallToolResult, ListUserPullRequestsOutput, error) {
-	maxPages := max(1, input.MaxPages)
+	maxPages := input.GetMaxPages()
 
 	options := &github.PullRequestListOptions{
 		State: input.State,

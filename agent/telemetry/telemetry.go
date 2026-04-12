@@ -2,9 +2,6 @@ package telemetry
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -15,30 +12,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.40.0"
 )
 
-func ValidateEnvironment() error {
-	requiredEnvVars := []string{
-		"OTEL_EXPORTER_OTLP_ENDPOINT",
-		"OTEL_EXPORTER_OTLP_HEADERS",
-	}
-	missing := 0
-	for _, envVar := range requiredEnvVars {
-		if strings.TrimSpace(os.Getenv(envVar)) == "" {
-			missing++
-		}
-	}
-
-	if missing > 0 {
-		return fmt.Errorf("missing required telemetry environment variables: %d", missing)
-	}
-
-	return nil
-}
-
 func InitTracer(ctx context.Context, serviceName string) (func(context.Context) error, error) {
-	if err := ValidateEnvironment(); err != nil {
-		return nil, err
-	}
-
 	exporter, err := otlptracehttp.New(ctx)
 	if err != nil {
 		return nil, err
