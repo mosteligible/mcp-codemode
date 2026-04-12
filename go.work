@@ -4,5 +4,4 @@ use (
 	./agent
 	./agent-proto
 	./coderunner
-	./pkg
 )
