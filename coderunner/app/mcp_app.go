@@ -45,5 +45,5 @@ func (app *McpApp) Start() error {
 	mux := http.NewServeMux()
 	mux.Handle("/mcp", handler)
 	app.logger.Info("starting mcp server on port :8081")
-	return http.ListenAndServe(":8081", handler)
+	return http.ListenAndServe(":8081", mux)
 }

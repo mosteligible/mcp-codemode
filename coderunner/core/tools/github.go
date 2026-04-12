@@ -14,14 +14,14 @@ type GithubToolInput struct {
 }
 
 func (i *GithubToolInput) GetPerPage() int {
-	if i.PerPage == nil {
+	if i.PerPage == nil || *i.PerPage < 1 {
 		return 1
 	}
 	return *i.PerPage
 }
 
 func (i *GithubToolInput) GetMaxPages() int {
-	if i.MaxPages == nil {
+	if i.MaxPages == nil || *i.MaxPages < 1 {
 		return 1
 	}
 	return *i.MaxPages
