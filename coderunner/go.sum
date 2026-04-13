@@ -42,6 +42,8 @@ github.com/modelcontextprotocol/go-sdk v1.4.1 h1:M4x9GyIPj+HoIlHNGpK2hq5o3BFhC+7
 github.com/modelcontextprotocol/go-sdk v1.4.1/go.mod h1:Bo/mS87hPQqHSRkMv4dQq1XCu6zv4INdXnFZabkNU6s=
 github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260406214552-cd7b5a04bcf5 h1:wH6dUgXx8wAYF/p14geB/whDwejrCXgkL2XPmBXblkw=
 github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260406214552-cd7b5a04bcf5/go.mod h1:w4hemaaoC787T7bdeAApyeG7qyyjugyVQBVndeU0NQ4=
+github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260412043541-511570627e29 h1:oxPWB4xwHILkG8Q02hs4csoxGaKNregWrQ5RO/zzmFY=
+github.com/mosteligible/mcp-codemode/agent-proto v0.0.0-20260412043541-511570627e29/go.mod h1:COp6ZCEMXpLwQ/5P5nVCZesMrGuBrh+FVpvNMJp7R2c=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/redis/go-redis/v9 v9.18.0 h1:pMkxYPkEbMPwRdenAzUNyFNrDgHx9U+DrBabWNfSRQs=
