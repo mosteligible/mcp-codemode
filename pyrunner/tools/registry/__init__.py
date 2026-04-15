@@ -62,7 +62,7 @@ __all__ = [
 ]
 
 
-def register_registry_tools(mcp: FastMCP) -> None:
+def register_static_tools(mcp: FastMCP) -> None:
     """Register all Graph/GitHub registry functions as tools on a FastMCP server."""
     mcp.tool()(get_user_information)
     mcp.tool()(get_user_calendar_availability)

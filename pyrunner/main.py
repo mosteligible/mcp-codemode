@@ -21,10 +21,9 @@ from starlette.middleware import Middleware
 from starlette.routing import Mount
 
 from config import settings
-from core.sandbox import pool  # module-level singleton
 from middleware import FastMCPContextMiddleware
 from tools import register_tools
-from tools.registry import register_registry_tools
+from tools.registry import register_static_tools
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,11 +44,14 @@ async def app_lifespan(_app: Starlette):
         settings.sandbox_image,
         settings.pool_size,
     )
-    await pool.start()
     async with AsyncExitStack() as stack:
         await stack.enter_async_context(mcp_app.router.lifespan_context(mcp_app))
-        await stack.enter_async_context(mcp_no_execute_app.router.lifespan_context(mcp_no_execute_app))
-        logger.info("MCP server ready at http://%s:%d/mcp", settings.mcp_host, settings.mcp_port)
+        await stack.enter_async_context(
+            mcp_no_execute_app.router.lifespan_context(mcp_no_execute_app)
+        )
+        logger.info(
+            "MCP server ready at http://%s:%d/mcp", settings.mcp_host, settings.mcp_port
+        )
         logger.info(
             "MCP server ready at http://%s:%d/mcp-no-code-execute",
             settings.mcp_host,
@@ -57,7 +59,6 @@ async def app_lifespan(_app: Starlette):
         )
         yield
     logger.info("Shutting down sandbox pool")
-    await pool.shutdown()
 
 
 # ── MCP server ───────────────────────────────────────────────────────
@@ -67,7 +68,7 @@ mcp = FastMCP(
     instructions=(
         "This MCP server provides sandboxed code execution. "
         "Use the execute_code tool to run Python, Bash with curl, or Node.js code "
-        "in an isolated Docker container with network access to public sites and apis. It has no access" \
+        "in an isolated Docker container with network access to public sites and apis. It has no access"
         "to the host system and all file operations are confined to the /workspace directory. "
         "Use the sandbox file tools (sandbox_read_file, sandbox_write_file, "
         "sandbox_list_files) to interact with the /workspace directory inside "
@@ -86,7 +87,7 @@ mcp_no_execute = FastMCP(
     ),
 )
 
-register_registry_tools(mcp_no_execute)
+register_static_tools(mcp_no_execute)
 
 
 mcp_app = mcp.http_app(
