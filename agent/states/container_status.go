@@ -55,6 +55,11 @@ func (cs *ContainerStatus) StartContainer(
 			},
 			HostConfig: &container.HostConfig{
 				Runtime: "runsc",
+				Resources: container.Resources{
+					Memory:   512 * 1024 * 1024, // 512MB
+					NanoCPUs: 500000000,         // 0.5 CPU
+				},
+				AutoRemove: true,
 			},
 		},
 	)
