@@ -11,8 +11,8 @@ class AgentMetadata:
     name: str
     description: str
     agent_type: AgentType
-    created_at: int = field(default=time.time())
+    created_at: int = field(default_factory=lambda: int(time.time()))
     last_used_at: int = field(
-        default=time.time(),
+        default_factory=lambda: int(time.time()),
         metadata={"description": "Timestamp of the last time this agent was used"},
     )

@@ -19,3 +19,8 @@ py-modules = ["config", "main"]
 
 [tool.setuptools.packages.find]
 include = ["core*", "tasks*", "tools*"]
+
+[dependency-groups]
+dev = [
+    "ty>=0.0.31",
+]

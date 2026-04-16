@@ -15,9 +15,9 @@ async def execution_handler(code: str, language: str) -> CodeRunnerResponse:
     url = f"{settings.code_execution_host}/run"
     postbody = CodeRunnerRequest(code=code, language=language)
 
-    with httpx.Client(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
         try:
-            response = client.post(url, json=postbody.model_dump(by_alias=True))
+            response = await client.post(url, json=postbody.model_dump(by_alias=True))
             response.raise_for_status()
             data = response.json()
             return CodeRunnerResponse.model_validate(data)

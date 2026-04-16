@@ -39,11 +39,6 @@ logger = logging.getLogger(__name__)
 @contextlib.asynccontextmanager
 async def app_lifespan(_app: Starlette):
     """Start shared resources and enter mounted MCP app lifespan."""
-    logger.info(
-        "Starting sandbox pool — image=%s pool_size=%d",
-        settings.sandbox_image,
-        settings.pool_size,
-    )
     async with AsyncExitStack() as stack:
         await stack.enter_async_context(mcp_app.router.lifespan_context(mcp_app))
         await stack.enter_async_context(
