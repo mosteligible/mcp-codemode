@@ -17,4 +17,4 @@ class CodeRunnerResponse(BaseModel):
     output: str = Field(
         ..., description="The combined stdout and stderr from code execution"
     )
-    error: int = Field(..., description="Error message from code execution")
+    error: str = Field(..., description="Error message from code execution")
