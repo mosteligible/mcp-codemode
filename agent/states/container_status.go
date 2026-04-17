@@ -55,6 +55,11 @@ func (cs *ContainerStatus) StartContainer(
 			},
 			HostConfig: &container.HostConfig{
 				Runtime: "runsc",
+				Resources: container.Resources{
+					Memory:   512 * 1024 * 1024, // 512MB
+					NanoCPUs: 500000000,         // 0.5 CPU
+				},
+				AutoRemove: true,
 			},
 		},
 	)
@@ -155,11 +160,6 @@ func (cs *ContainerStatus) StopContainer(containerClient *client.Client) error {
 	_, err := containerClient.ContainerStop(context.Background(), string(cs.id), client.ContainerStopOptions{})
 	if err != nil {
 		slog.Error("error stopping container", "container-id", cs.id, "error", err.Error())
-		return err
-	}
-	_, err = containerClient.ContainerRemove(context.Background(), string(cs.id), client.ContainerRemoveOptions{})
-	if err != nil {
-		slog.Error("error removing container", "container-id", cs.id, "error", err.Error())
 		return err
 	}
 	return nil

@@ -2,10 +2,36 @@
 
 from __future__ import annotations
 
+import httpx
+from config import settings
 from fastmcp import FastMCP
 
-from core.sandbox import pool
+from core.types.schemas import CodeRunnerRequest, CodeRunnerResponse
 from log import app_logger
+
+
+async def execution_handler(code: str, language: str) -> CodeRunnerResponse:
+    """Handler function for the execute_code tool."""
+    url = f"{settings.code_execution_host}/run"
+    postbody = CodeRunnerRequest(code=code, language=language)
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            response = await client.post(url, json=postbody.model_dump(by_alias=True))
+            response.raise_for_status()
+            data = response.json()
+            return CodeRunnerResponse.model_validate(data)
+        except httpx.RequestError as exc:
+            app_logger.error(f"HTTP request failed: {exc}")
+            return CodeRunnerResponse(output="", error=-1)
+        except httpx.HTTPStatusError as exc:
+            app_logger.error(
+                f"HTTP error response: {exc.response.status_code} - {exc.response.text}"
+            )
+            return CodeRunnerResponse(output="", error=-1)
+        except Exception as exc:
+            app_logger.error(f"Unexpected error: {exc}")
+            return CodeRunnerResponse(output="", error=-1)
 
 
 def register(mcp: FastMCP) -> None:
@@ -35,43 +61,20 @@ def register(mcp: FastMCP) -> None:
             code,
         )
 
-        container = await pool.acquire()
-        app_logger.info(
-            "[execute_code] Acquired container | container_id=%s",
-            container.short_id,
-        )
-        try:
-            app_logger.info(
-                "[execute_code] Starting sandbox execution | container_id=%s",
-                container.short_id,
-            )
-            result = await pool.exec_code(container, code, language)
-            app_logger.info(
-                "[execute_code] Execution finished | container_id=%s | exit_code=%s | truncated=%s",
-                container.short_id,
-                result.exit_code,
-                result.truncated,
-            )
-        finally:
-            await pool.release(container)
-            app_logger.info(
-                "[execute_code] Released container | container_id=%s",
-                container.short_id,
-            )
+        result = await execution_handler(code, language)
 
         parts: list[str] = []
-        if result.stdout:
-            parts.append(f"[stdout]\n{result.stdout}")
-        if result.stderr:
-            parts.append(f"[stderr]\n{result.stderr}")
-        parts.append(f"[exit_code] {result.exit_code}")
-        if result.truncated:
-            parts.append("[note] Output was truncated due to size limits.")
+        res = "stdout" if result.error == 0 else "stderr"
+        if result.error != 0:
+            parts.append(f"[stderr]\n{result.output}")
+        else:
+            parts.append(f"[stdout]\n{result.output}")
+        parts.append(f"[exit_code] {result.error}")
         response = "\n".join(parts)
         app_logger.info(
-            "[execute_code] Returning response | stdout=%r | stderr=%r | response=%r",
-            result.stdout,
-            result.stderr,
+            "[execute_code] Returning response | %r=%r | response=%r",
+            res,
+            result.output,
             response,
         )
         return response

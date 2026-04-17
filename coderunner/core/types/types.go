@@ -17,7 +17,7 @@ type ProxyTarget struct {
 	Token    string
 	Base     string
 	Method   string
-	PostBody map[string]interface{}
+	PostBody map[string]any
 }
 
 func (t ProxyTarget) String() string {
