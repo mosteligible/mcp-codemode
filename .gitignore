@@ -21,3 +21,5 @@ web/.next/
 web/node_modules/
 instructions/
 .ruff_cache/
+
+.codex
