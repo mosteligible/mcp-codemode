@@ -22,6 +22,10 @@ class AgentState:
         """Retrieve an agent's metadata."""
         return self.agent_metadata.get(agent_name)
 
+    def list_agents(self) -> list[AgentMetadata]:
+        """Return all registered agent metadata."""
+        return list(self.agent_metadata.values())
+
     def reset(self) -> None:
         """Reset the agent state to an empty state."""
         self.agent_metadata.clear()

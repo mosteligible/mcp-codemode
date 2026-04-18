@@ -7,6 +7,8 @@ requires-python = ">=3.12"
 dependencies = [
     "docker>=7.1.0",
     "fastmcp>=3.0.2",
+    "httpx>=0.28.1",
+    "pydantic-ai>=1.10.0",
     "uvicorn>=0.40.0",
 ]
 
@@ -18,9 +20,11 @@ build-backend = "setuptools.build_meta"
 py-modules = ["config", "main"]
 
 [tool.setuptools.packages.find]
-include = ["core*", "tasks*", "tools*"]
+include = ["agent_orchestration*", "core*", "tasks*", "tools*"]
 
 [dependency-groups]
 dev = [
+    "pytest>=8.4.1",
+    "pytest-asyncio>=1.1.0",
     "ty>=0.0.31",
 ]
