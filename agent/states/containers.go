@@ -147,6 +147,13 @@ func (c *ActiveContainers) SetActiveContainers(containerClient *client.Client, m
 						Image: imageName,
 						Cmd:   []string{"sleep", "infinity"},
 					},
+					HostConfig: &container.HostConfig{
+						AutoRemove: true,
+						Resources: container.Resources{
+							Memory:   512 * 1024 * 1024, // 512MB
+							NanoCPUs: 500000000,         // 0.5 CPU
+						},
+					},
 				})
 			if err != nil {
 				slog.Error("error creating container: " + err.Error())
