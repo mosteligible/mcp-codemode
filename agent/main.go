@@ -14,6 +14,7 @@ import (
 	"github.com/mosteligible/mcp-codemode/agent/core/interceptors"
 	"github.com/mosteligible/mcp-codemode/agent/server"
 	"github.com/mosteligible/mcp-codemode/agent/telemetry"
+	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 )
@@ -36,8 +37,17 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
 
+	redisOpts := &redis.Options{
+		Addr: conf.RedisHost + ":" + conf.RedisPort,
+		DB:   conf.RedisDb,
+	}
+	if conf.RedisPassword != "" {
+		redisOpts.Password = conf.RedisPassword
+	}
+	redisClient := redis.NewClient(redisOpts)
+
 	shutdownSignal := make(chan struct{})
-	gserver := server.NewServer(shutdownSignal)
+	gserver := server.NewServer(shutdownSignal, redisClient)
 	serverErr := make(chan error, 1)
 	go func() {
 		// Attach request logging and OpenTelemetry stats collection to every unary RPC.

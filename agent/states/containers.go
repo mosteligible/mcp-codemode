@@ -128,9 +128,10 @@ type ContainerState struct {
 	MinActive           int
 	ProgrammingLanguage string
 	Containers          *ActiveContainers
+	maxActiveContainers int
 }
 
-func NewContainerState(containerClient *client.Client, imageName string, minActive int) *ContainerState {
+func NewContainerState(containerClient *client.Client, imageName string, minActive, maxAvailable int) *ContainerState {
 	if imageName == "" {
 		imageName = constants.DefaultDockerImageName
 	}
@@ -157,9 +158,10 @@ func NewContainerState(containerClient *client.Client, imageName string, minActi
 	)
 
 	cs := &ContainerState{
-		containerImageName: imageName,
-		MinActive:          minActive,
-		Containers:         NewActiveContainers(containerClient, minActive, imageName),
+		containerImageName:  imageName,
+		MinActive:           minActive,
+		Containers:          NewActiveContainers(containerClient, minActive, imageName),
+		maxActiveContainers: maxAvailable,
 	}
 
 	// goroutine to garbage collect idle containers every 60 seconds; idle time 60 seconds
@@ -225,4 +227,8 @@ func (cs *ContainerState) CleanupIdleContainers(containerClient *client.Client, 
 			cs.Containers.Remove(types.SessionId(status.sessionId))
 		}
 	}
+}
+
+func (cs *ContainerState) GetMaxSlots() int {
+	return cs.maxActiveContainers - cs.Containers.Count()
 }

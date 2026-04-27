@@ -13,6 +13,7 @@ import (
 	"github.com/mosteligible/mcp-codemode/agent/core/common"
 	"github.com/mosteligible/mcp-codemode/agent/states"
 	"github.com/mosteligible/mcp-codemode/agent/types"
+	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
@@ -24,10 +25,11 @@ type Server struct {
 	containerState  *states.ContainerState
 	containerClient *client.Client
 	config          *config.Config
+	redisClient     *redis.Client
 }
 
 // NewServer initializes the Docker-backed execution state used by the gRPC service.
-func NewServer(shutdownSignal chan struct{}) *Server {
+func NewServer(shutdownSignal chan struct{}, redisClient *redis.Client) *Server {
 	slog.Info("starting server")
 	conf := config.NewConfig()
 	dockerClient, err := client.New(
@@ -43,12 +45,15 @@ func NewServer(shutdownSignal chan struct{}) *Server {
 	}
 
 	slog.Info("docker found, starting server")
-	containerState := states.NewContainerState(dockerClient, conf.DockerImageName, conf.MinActive)
+	containerState := states.NewContainerState(
+		dockerClient, conf.DockerImageName, conf.MinActiveContainers, conf.MaxActiveContainers,
+	)
 
 	return &Server{
 		containerState:  containerState,
 		containerClient: dockerClient,
 		config:          conf,
+		redisClient:     redisClient,
 	}
 }
 
