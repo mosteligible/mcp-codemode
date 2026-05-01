@@ -11,6 +11,7 @@ import (
 	"github.com/mosteligible/mcp-codemode/agent/config"
 	"github.com/mosteligible/mcp-codemode/agent/core"
 	"github.com/mosteligible/mcp-codemode/agent/core/common"
+	"github.com/mosteligible/mcp-codemode/agent/heartbeat"
 	"github.com/mosteligible/mcp-codemode/agent/states"
 	"github.com/mosteligible/mcp-codemode/agent/types"
 	"github.com/redis/go-redis/v9"
@@ -48,6 +49,9 @@ func NewServer(shutdownSignal chan struct{}, redisClient *redis.Client) *Server 
 	containerState := states.NewContainerState(
 		dockerClient, conf.DockerImageName, conf.MinActiveContainers, conf.MaxActiveContainers,
 	)
+
+	beats := heartbeat.NewBeat(conf, containerState)
+	go beats.Start(redisClient, shutdownSignal)
 
 	return &Server{
 		containerState:  containerState,

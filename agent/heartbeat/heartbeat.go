@@ -2,6 +2,8 @@ package heartbeat
 
 import (
 	"context"
+	"encoding/json"
+	"log/slog"
 	"time"
 
 	"github.com/mosteligible/mcp-codemode/agent/config"
@@ -33,10 +35,26 @@ type WorkerCapacity struct {
 	AvailableSlots int         `json:"available_slots"`
 }
 
-func NewBeat(appConfig config.Config, containerState *states.ContainerState) *Beat {
+func (b *Beat) MarshalBinary() ([]byte, error) {
+	return json.Marshal(b)
+}
+
+func (b *Beat) UnmarshalBinary(data []byte) error {
+	return json.Unmarshal(data, b)
+}
+
+func (wc *WorkerCapacity) MarshalBinary() ([]byte, error) {
+	return json.Marshal(wc)
+}
+
+func (wc *WorkerCapacity) UnmarshalBinary(data []byte) error {
+	return json.Unmarshal(data, wc)
+}
+
+func NewBeat(appConfig *config.Config, containerState *states.ContainerState) *Beat {
 	return &Beat{
 		WorkerId:       appConfig.WorkerPort,
-		interval:       appConfig.ActiveContainerCheckInterval,
+		interval:       appConfig.HeartBeatInterval,
 		containerState: containerState,
 	}
 }
@@ -45,11 +63,23 @@ func (b *Beat) Start(redisClient *redis.Client, shutdownSignal chan struct{}) {
 	ticker := time.NewTicker(time.Duration(b.interval) * time.Second)
 	defer ticker.Stop()
 
+	capacityKey := b.WorkerId + ":capacity"
 	for {
 		select {
 		case <-ticker.C:
-			err := redisClient.Set(context.Background(), b.WorkerId, "alive", time.Duration(b.interval)*time.Second).Err()
+			workerCapacity, err := GetWorkerCapacity(redisClient, b.WorkerId, b.containerState)
+			if err == nil {
+				err := redisClient.Set(
+					context.Background(), capacityKey, workerCapacity, time.Duration(b.interval)*time.Second,
+				).Err()
+				if err != nil {
+					slog.Error("error setting worker capacity", "error", err.Error())
+				}
+			}
+			b.LastUpdated = time.Now()
+			err = redisClient.Set(context.Background(), b.WorkerId, b, time.Duration(b.interval)*time.Second).Err()
 			if err != nil {
+				slog.Error("error setting worker status", "error", err.Error())
 			}
 		case <-shutdownSignal:
 			return

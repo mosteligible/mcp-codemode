@@ -21,6 +21,7 @@ type Config struct {
 }
 
 func NewConfig() *Config {
+
 	return &Config{
 		DockerApiVersion:             common.GetEnvironmentVariable("DOCKER_API_VERSION", constants.DefaultDockerApiVersion),
 		DockerImageName:              common.GetEnvironmentVariable("DOCKER_IMAGE_NAME", constants.DefaultDockerImageName),

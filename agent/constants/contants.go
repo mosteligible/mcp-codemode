@@ -8,7 +8,7 @@ const (
 	DefaultMaxActive              = 8
 	DefaultContainerCheckInterval = 30 // seconds
 
-	DefaultHeartBeatInterval = 10 // seconds
+	DefaultHeartBeatInterval = 5 // seconds
 
 	ProgrammingLanguagePython = "python"
 	ProgrammingLanguageBash   = "bash"
