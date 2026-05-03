@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/mosteligible/mcp-codemode/agent/config"
+	"github.com/mosteligible/mcp-codemode/agent/core/common"
 	"github.com/mosteligible/mcp-codemode/agent/states"
 	"github.com/redis/go-redis/v9"
 )
@@ -75,6 +76,8 @@ func (b *Beat) Start(redisClient *redis.Client, shutdownSignal chan struct{}) {
 				if err != nil {
 					slog.Error("error setting worker capacity", "error", err.Error())
 				}
+			} else {
+				slog.Error("error getting worker capacity", "error", err.Error())
 			}
 			b.LastUpdated = time.Now()
 			err = redisClient.Set(context.Background(), b.WorkerId, b, time.Duration(b.interval)*time.Second).Err()
@@ -89,12 +92,17 @@ func (b *Beat) Start(redisClient *redis.Client, shutdownSignal chan struct{}) {
 
 func GetWorkerCapacity(redisClient *redis.Client, workerId string, containerState *states.ContainerState) (*WorkerCapacity, error) {
 	// returns the current cpu and memory usage of the worker, as well as the number of available slots for new tasks
+	hostResourceUsage, err := common.GetHostResourceUsage()
+	if err != nil {
+		return nil, err
+	}
+
 	return &WorkerCapacity{
-		WorkerId: workerId,
-		State:    WorkerStateAvailable,
-		// CpuPercent:    getCpuUsage(),
-		// MemoryPercent: getMemoryUsage(),
-		LastUpdated: time.Now(),
-		MaxSlots:    containerState.GetMaxSlots(),
+		WorkerId:      workerId,
+		State:         WorkerStateAvailable,
+		CpuPercent:    hostResourceUsage.CPUPercent,
+		MemoryPercent: hostResourceUsage.MemoryPercent,
+		LastUpdated:   time.Now(),
+		MaxSlots:      containerState.GetMaxSlots(),
 	}, nil
 }
