@@ -1,9 +1,10 @@
-import { streamText } from "ai";
+import { stepCountIs, streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { buildMcpToolSet } from "@/lib/chat-tools";
+import { buildBoundedModelMessages } from "@/lib/conversation-history";
 import { getServerEnv } from "@/lib/env";
 import { appendMessage, ensureThread, getThread } from "@/lib/thread-store";
 
@@ -42,10 +43,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Thread not found." }, { status: 404 });
   }
 
-  const modelMessages = hydratedThread.messages.map((msg) => ({
-    role: msg.role,
-    content: msg.content,
-  }));
+  const modelMessages = buildBoundedModelMessages(
+    hydratedThread.messages,
+    env.conversationMaxTokens,
+  );
 
   const openai = createOpenAI({ apiKey: env.openAiApiKey });
 
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
     mcpServerUrls: env.mcpServerUrls,
     listTimeoutMs: env.mcpListTimeoutMs,
     callTimeoutMs: env.mcpCallTimeoutMs,
-  }).catch(() => ({}));
+  });
 
   const result = streamText({
     model: openai(env.openAiModel),
@@ -62,6 +63,7 @@ export async function POST(request: Request) {
       "Use tools when external execution or filesystem interaction is needed.",
     messages: modelMessages,
     tools: toolSet,
+    stopWhen: stepCountIs(5),
     onFinish: ({ text }) => {
       if (text.trim()) {
         appendMessage(thread.id, "assistant", text);

@@ -29,16 +29,18 @@ Variables:
 
 - `OPENAI_API_KEY` required for chat requests
 - `OPENAI_MODEL` defaults to `gpt-4o-mini`
-- `MCP_SERVER_URLS` comma-separated list of MCP Streamable HTTP endpoints
+- `MCP_HOST` MCP Streamable HTTP endpoint, defaults to `http://localhost:8000/mcp`
 - `MCP_LIST_TIMEOUT_MS` timeout for tool discovery calls
 - `MCP_CALL_TIMEOUT_MS` timeout for tool execution calls
+- `CONVERSATION_MAX_TOKENS` approximate model history budget, defaults to `200000`
 
 Example:
 
 ```env
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o-mini
-MCP_SERVER_URLS=http://localhost:8000/mcp
+MCP_HOST=http://localhost:8000/mcp
+CONVERSATION_MAX_TOKENS=200000
 ```
 
 ## Run

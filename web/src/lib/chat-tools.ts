@@ -1,14 +1,18 @@
-import { tool, type ToolSet } from "ai";
-import { z } from "zod";
+import { jsonSchema, tool, type JSONSchema7, type ToolSet } from "ai";
 
 import { callMcpTool, listMcpTools } from "./mcp";
+
+const emptyObjectSchema: JSONSchema7 = {
+  type: "object",
+  properties: {},
+};
 
 function sanitizeToolName(name: string): string {
   return name
     .replace(/[^a-zA-Z0-9_]/g, "_")
     .replace(/_{2,}/g, "_")
     .replace(/^_+|_+$/g, "")
-    .slice(0, 50);
+    .slice(0, 50) || "tool";
 }
 
 export async function buildMcpToolSet(input: {
@@ -28,10 +32,10 @@ export async function buildMcpToolSet(input: {
           `${item.description}\n` +
           `Server: ${item.serverUrl}\n` +
           `Original tool: ${item.name}`,
-        inputSchema: z.object({
-          arguments: z.record(z.string(), z.any()).default({}),
-        }),
-        execute: async ({ arguments: args }) => {
+        inputSchema: jsonSchema<Record<string, unknown>>(
+          (item.inputSchema ?? emptyObjectSchema) as JSONSchema7,
+        ),
+        execute: async (args) => {
           return callMcpTool(item.serverUrl, item.name, args, input.callTimeoutMs);
         },
       }),

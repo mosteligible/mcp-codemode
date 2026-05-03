@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { ChatMessage, ChatRole, ThreadRecord, ThreadSummary } from "./types";
 
 const threads = new Map<string, ThreadRecord>();
+const userTitledThreads = new Set<string>();
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -36,6 +37,10 @@ export function createThread(title?: string): ThreadRecord {
   };
 
   threads.set(id, thread);
+  if (title) {
+    userTitledThreads.add(id);
+  }
+
   return thread;
 }
 
@@ -53,6 +58,17 @@ export function listThreads(): ThreadSummary[] {
 
 export function getThread(threadId: string): ThreadRecord | null {
   return threads.get(threadId) ?? null;
+}
+
+export function updateThreadTitle(threadId: string, title: string): ThreadRecord | null {
+  const thread = getThread(threadId);
+  if (!thread) return null;
+
+  thread.title = formatTitle(title);
+  thread.updatedAt = nowIso();
+  userTitledThreads.add(threadId);
+
+  return thread;
 }
 
 export function ensureThread(threadId?: string): ThreadRecord {
@@ -76,7 +92,7 @@ export function appendMessage(
     throw new Error(`Thread ${threadId} not found`);
   }
 
-  if (!thread.messages.length && role === "user") {
+  if (!thread.messages.length && role === "user" && !userTitledThreads.has(threadId)) {
     thread.title = formatTitle(content);
   }
 

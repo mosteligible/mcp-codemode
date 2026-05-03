@@ -31,6 +31,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       model: env.openAiModel,
+      conversationMaxTokens: env.conversationMaxTokens,
       mcpServers: checks,
     });
   } catch (error) {

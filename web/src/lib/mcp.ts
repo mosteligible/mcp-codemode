@@ -1,11 +1,13 @@
-import { randomUUID } from "node:crypto";
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { CallToolResultSchema, type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 
-export interface MpcServerDefinition {
+export interface McpServerDefinition {
   id: string;
   url: string;
 }
 
-export interface MpcToolDefinition {
+export interface McpToolDefinition {
   serverId: string;
   serverUrl: string;
   name: string;
@@ -13,85 +15,26 @@ export interface MpcToolDefinition {
   inputSchema?: Record<string, unknown>;
 }
 
-interface JsonRpcResponse<T> {
-  id?: string;
-  jsonrpc?: "2.0";
-  result?: T;
-  error?: {
-    code: number;
-    message: string;
-  };
-}
-
-interface ToolsListResult {
-  tools: Array<{
-    name: string;
-    description?: string;
-    inputSchema?: Record<string, unknown>;
-  }>;
-}
-
-interface ToolCallResult {
-  content?: Array<{ type?: string; text?: string }>;
-  isError?: boolean;
-  [key: string]: unknown;
-}
-
-function withTimeout(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-  signal?.addEventListener("abort", () => controller.abort(), { once: true });
-  controller.signal.addEventListener(
-    "abort",
-    () => {
-      clearTimeout(timeout);
-    },
-    { once: true },
-  );
-
-  return controller.signal;
-}
-
-async function jsonRpcRequest<T>(
+async function withMcpClient<T>(
   serverUrl: string,
-  method: string,
-  params: Record<string, unknown>,
   timeoutMs: number,
+  run: (client: Client) => Promise<T>,
 ): Promise<T> {
-  const response = await fetch(serverUrl, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: randomUUID(),
-      method,
-      params,
-    }),
-    signal: withTimeout(undefined, timeoutMs),
-    cache: "no-store",
+  const client = new Client({
+    name: "codemode-web",
+    version: "0.1.0",
   });
+  const transport = new StreamableHTTPClientTransport(new URL(serverUrl));
 
-  if (!response.ok) {
-    throw new Error(`MCP request failed (${response.status}) for ${method} on ${serverUrl}`);
+  try {
+    await client.connect(transport, { timeout: timeoutMs });
+    return await run(client);
+  } finally {
+    await client.close().catch(() => undefined);
   }
-
-  const payload = (await response.json()) as JsonRpcResponse<T>;
-
-  if (payload.error) {
-    throw new Error(`MCP error ${payload.error.code}: ${payload.error.message}`);
-  }
-
-  if (!payload.result) {
-    throw new Error(`MCP request missing result for method ${method}`);
-  }
-
-  return payload.result;
 }
 
-function serverDefs(urls: string[]): MpcServerDefinition[] {
+function serverDefs(urls: string[]): McpServerDefinition[] {
   return urls.map((url, index) => ({
     id: `server${index + 1}`,
     url,
@@ -101,32 +44,42 @@ function serverDefs(urls: string[]): MpcServerDefinition[] {
 export async function listMcpTools(
   urls: string[],
   timeoutMs: number,
-): Promise<MpcToolDefinition[]> {
+): Promise<McpToolDefinition[]> {
   const servers = serverDefs(urls);
 
   const byServer = await Promise.all(
     servers.map(async (server) => {
-      const listed = await jsonRpcRequest<ToolsListResult>(
-        server.url,
-        "tools/list",
-        {},
-        timeoutMs,
-      );
+      return withMcpClient(server.url, timeoutMs, async (client) => {
+        const tools: McpToolDefinition[] = [];
+        let cursor: string | undefined;
 
-      return listed.tools.map((tool) => ({
-        serverId: server.id,
-        serverUrl: server.url,
-        name: tool.name,
-        description: tool.description ?? "",
-        inputSchema: tool.inputSchema,
-      }));
+        do {
+          const listed = await client.listTools(cursor ? { cursor } : undefined, {
+            timeout: timeoutMs,
+          });
+
+          tools.push(
+            ...listed.tools.map((tool) => ({
+              serverId: server.id,
+              serverUrl: server.url,
+              name: tool.name,
+              description: tool.description ?? "",
+              inputSchema: tool.inputSchema,
+            })),
+          );
+
+          cursor = listed.nextCursor;
+        } while (cursor);
+
+        return tools;
+      });
     }),
   );
 
   return byServer.flat();
 }
 
-function stringifyContent(content: ToolCallResult["content"]): string {
+function stringifyContent(content: CallToolResult["content"]): string {
   if (!Array.isArray(content) || !content.length) {
     return "";
   }
@@ -135,6 +88,11 @@ function stringifyContent(content: ToolCallResult["content"]): string {
     .map((chunk) => {
       if (chunk.type === "text") {
         return chunk.text ?? "";
+      }
+
+      if (chunk.type === "resource") {
+        if ("text" in chunk.resource) return chunk.resource.text;
+        return JSON.stringify(chunk.resource);
       }
 
       return JSON.stringify(chunk);
@@ -149,18 +107,28 @@ export async function callMcpTool(
   args: Record<string, unknown>,
   timeoutMs: number,
 ): Promise<string> {
-  const result = await jsonRpcRequest<ToolCallResult>(
-    serverUrl,
-    "tools/call",
-    {
-      name,
-      arguments: args,
-    },
-    timeoutMs,
-  );
+  return withMcpClient(serverUrl, timeoutMs, async (client) => {
+    const result = await client.callTool(
+      {
+        name,
+        arguments: args,
+      },
+      CallToolResultSchema,
+      {
+        timeout: timeoutMs,
+        resetTimeoutOnProgress: true,
+      },
+    );
 
-  const text = stringifyContent(result.content);
-  if (text) return text;
+    if ("toolResult" in result) {
+      return JSON.stringify(result.toolResult, null, 2);
+    }
 
-  return JSON.stringify(result, null, 2);
+    const text = stringifyContent(result.content);
+    if (text) {
+      return result.isError ? `Tool returned an error:\n${text}` : text;
+    }
+
+    return JSON.stringify(result, null, 2);
+  });
 }

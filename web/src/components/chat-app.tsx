@@ -5,8 +5,12 @@ import {
   Activity,
   Bot,
   MessageCirclePlus,
+  Moon,
+  MoreVertical,
+  Pencil,
   SendHorizontal,
   Server,
+  Sun,
   User,
 } from "lucide-react";
 
@@ -23,6 +27,8 @@ interface StatusPayload {
     error?: string;
   }>;
 }
+
+type Theme = "light" | "dark";
 
 function isoNow(): string {
   return new Date().toISOString();
@@ -58,6 +64,11 @@ export function ChatApp() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isBooting, setIsBooting] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isThreadMenuOpen, setIsThreadMenuOpen] = useState(false);
+  const [isRenameOpen, setIsRenameOpen] = useState(false);
+  const [renameTitle, setRenameTitle] = useState("");
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
+  const [theme, setTheme] = useState<Theme>("light");
 
   const activeThread = useMemo(
     () => threads.find((thread) => thread.id === activeThreadId) ?? null,
@@ -113,6 +124,48 @@ export function ChatApp() {
     setMessages(payload.thread.messages);
   }
 
+  function openRenameModal() {
+    setRenameTitle(activeThread?.title ?? "New thread");
+    setIsThreadMenuOpen(false);
+    setIsRenameOpen(true);
+  }
+
+  async function saveThreadTitle(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!activeThreadId || isSavingTitle) return;
+
+    const nextTitle = renameTitle.trim();
+    if (!nextTitle) return;
+
+    setIsSavingTitle(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/threads/${activeThreadId}`, {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ title: nextTitle }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readError(response));
+      }
+
+      const payload = (await response.json()) as { thread: ThreadRecord };
+      await refreshThreads();
+      setActiveThreadId(payload.thread.id);
+      setMessages(payload.thread.messages);
+      setIsRenameOpen(false);
+    } catch (renameError) {
+      setError(renameError instanceof Error ? renameError.message : "Could not rename thread");
+    } finally {
+      setIsSavingTitle(false);
+    }
+  }
+
   useEffect(() => {
     const init = async () => {
       try {
@@ -135,6 +188,28 @@ export function ChatApp() {
 
     void init();
   }, []);
+
+  useEffect(() => {
+    setIsThreadMenuOpen(false);
+    setIsRenameOpen(false);
+  }, [activeThreadId]);
+
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem("codemode-theme");
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const nextTheme = savedTheme === "dark" || savedTheme === "light"
+      ? savedTheme
+      : prefersDark
+        ? "dark"
+        : "light";
+
+    setTheme(nextTheme);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    window.localStorage.setItem("codemode-theme", theme);
+  }, [theme]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -230,8 +305,21 @@ export function ChatApp() {
     }
   }
 
+  function handleComposerKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+    if (event.shiftKey) return;
+
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
+  }
+
+  function toggleTheme() {
+    setTheme((current) => (current === "dark" ? "light" : "dark"));
+  }
+
   return (
-    <div className="chat-shell">
+    <>
+      <div className="chat-shell">
       <aside className="thread-rail">
         <div className="rail-header">
           <div>
@@ -313,11 +401,45 @@ export function ChatApp() {
         <header className="chat-header">
           <div>
             <p className="eyebrow">Active Thread</p>
-            <h2>{activeThread?.title ?? "New thread"}</h2>
+            <div className="thread-title-row">
+              <div className="thread-menu-wrap">
+                <button
+                  className="title-menu-button"
+                  type="button"
+                  aria-label="Thread actions"
+                  aria-expanded={isThreadMenuOpen}
+                  onClick={() => setIsThreadMenuOpen((value) => !value)}
+                  disabled={!activeThreadId}
+                >
+                  <MoreVertical size={16} />
+                </button>
+                {isThreadMenuOpen ? (
+                  <div className="thread-menu">
+                    <button type="button" onClick={openRenameModal}>
+                      <Pencil size={14} />
+                      <span>Edit</span>
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              <h2>{activeThread?.title ?? "New thread"}</h2>
+            </div>
           </div>
-          <div className="activity-pill">
-            <Activity size={14} />
-            <span>{isStreaming ? "Streaming" : "Idle"}</span>
+          <div className="chat-header-actions">
+            <button
+              className="theme-toggle"
+              type="button"
+              aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              aria-pressed={theme === "dark"}
+              onClick={toggleTheme}
+              title={theme === "dark" ? "Light mode" : "Dark mode"}
+            >
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <div className="activity-pill">
+              <Activity size={14} />
+              <span>{isStreaming ? "Streaming" : "Idle"}</span>
+            </div>
           </div>
         </header>
 
@@ -346,6 +468,7 @@ export function ChatApp() {
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
+            onKeyDown={handleComposerKeyDown}
             placeholder="Ask anything. MCP tools are available to the assistant."
             rows={3}
             disabled={isStreaming || !activeThreadId}
@@ -359,6 +482,55 @@ export function ChatApp() {
           </div>
         </form>
       </main>
-    </div>
+      </div>
+
+      {isRenameOpen ? (
+        <div
+          className="modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isSavingTitle) {
+              setIsRenameOpen(false);
+            }
+          }}
+        >
+          <form
+            className="rename-modal"
+            onSubmit={saveThreadTitle}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="rename-thread-title"
+          >
+            <h3 id="rename-thread-title">Edit thread name</h3>
+            <label className="rename-field">
+              <span>Name</span>
+              <input
+                value={renameTitle}
+                onChange={(event) => setRenameTitle(event.target.value)}
+                maxLength={120}
+                autoFocus
+              />
+            </label>
+            <div className="modal-actions">
+              <button
+                className="secondary-action"
+                type="button"
+                onClick={() => setIsRenameOpen(false)}
+                disabled={isSavingTitle}
+              >
+                Cancel
+              </button>
+              <button
+                className="primary-action"
+                type="submit"
+                disabled={isSavingTitle || !renameTitle.trim()}
+              >
+                {isSavingTitle ? "Saving" : "Save"}
+              </button>
+            </div>
+          </form>
+        </div>
+      ) : null}
+    </>
   );
 }
