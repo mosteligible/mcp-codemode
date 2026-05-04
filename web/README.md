@@ -9,6 +9,7 @@ Next.js App Router interface for chatting with an LLM via server-side OpenAI cal
 - Runtime-only thread memory (stored in server process memory)
 - Server-side MCP integration with remote Streamable HTTP servers
 - OpenAI model calls isolated to server routes
+- GitHub and Google OAuth sign-in via NextAuth
 
 ## Prerequisites
 
@@ -16,6 +17,7 @@ Next.js App Router interface for chatting with an LLM via server-side OpenAI cal
 - pnpm 10+
 - A running MCP server (for local development this repo provides `pyrunner`)
 - OpenAI API key
+- GitHub OAuth app and/or Google OAuth client credentials
 
 ## Configuration
 
@@ -27,6 +29,12 @@ cp .env.example .env.local
 
 Variables:
 
+- `NEXTAUTH_URL` application origin, e.g. `http://localhost:3000`
+- `NEXTAUTH_SECRET` random secret used to encrypt/sign auth tokens
+- `GITHUB_ID` GitHub OAuth app client ID
+- `GITHUB_SECRET` GitHub OAuth app client secret
+- `GOOGLE_ID` Google OAuth client ID
+- `GOOGLE_SECRET` Google OAuth client secret
 - `OPENAI_API_KEY` required for chat requests
 - `OPENAI_MODEL` defaults to `gpt-4o-mini`
 - `MCP_HOST` MCP Streamable HTTP endpoint, defaults to `http://localhost:8000/mcp`
@@ -37,11 +45,33 @@ Variables:
 Example:
 
 ```env
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=replace-with-a-random-secret
+GITHUB_ID=
+GITHUB_SECRET=
+GOOGLE_ID=
+GOOGLE_SECRET=
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-4o-mini
 MCP_HOST=http://localhost:8000/mcp
 CONVERSATION_MAX_TOKENS=200000
 ```
+
+## OAuth Setup
+
+GitHub callback URL:
+
+```text
+http://localhost:3000/api/auth/callback/github
+```
+
+Google authorized redirect URI:
+
+```text
+http://localhost:3000/api/auth/callback/google
+```
+
+Use the same callback paths with your production origin when deployed.
 
 ## Run
 

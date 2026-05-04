@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 
 import type { ChatMessage, ChatRole, ThreadRecord, ThreadSummary } from "./types";
 
-const threads = new Map<string, ThreadRecord>();
+type StoredThread = ThreadRecord & {
+  ownerId: string;
+};
+
+const threads = new Map<string, StoredThread>();
 const userTitledThreads = new Set<string>();
 
 function nowIso(): string {
@@ -24,11 +28,23 @@ function message(role: ChatRole, content: string): ChatMessage {
   };
 }
 
-export function createThread(title?: string): ThreadRecord {
+function publicThread(thread: StoredThread): ThreadRecord {
+  return {
+    id: thread.id,
+    title: thread.title,
+    createdAt: thread.createdAt,
+    updatedAt: thread.updatedAt,
+    messageCount: thread.messageCount,
+    messages: thread.messages,
+  };
+}
+
+export function createThread(ownerId: string, title?: string): ThreadRecord {
   const createdAt = nowIso();
   const id = randomUUID();
-  const thread: ThreadRecord = {
+  const thread: StoredThread = {
     id,
+    ownerId,
     title: formatTitle(title ?? "New thread"),
     createdAt,
     updatedAt: createdAt,
@@ -41,11 +57,12 @@ export function createThread(title?: string): ThreadRecord {
     userTitledThreads.add(id);
   }
 
-  return thread;
+  return publicThread(thread);
 }
 
-export function listThreads(): ThreadSummary[] {
+export function listThreads(ownerId: string): ThreadSummary[] {
   return Array.from(threads.values())
+    .filter((thread) => thread.ownerId === ownerId)
     .map((thread) => ({
       id: thread.id,
       title: thread.title,
@@ -56,39 +73,47 @@ export function listThreads(): ThreadSummary[] {
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-export function getThread(threadId: string): ThreadRecord | null {
-  return threads.get(threadId) ?? null;
+export function getThread(ownerId: string, threadId: string): ThreadRecord | null {
+  const thread = threads.get(threadId);
+  if (!thread || thread.ownerId !== ownerId) return null;
+
+  return publicThread(thread);
 }
 
-export function updateThreadTitle(threadId: string, title: string): ThreadRecord | null {
-  const thread = getThread(threadId);
-  if (!thread) return null;
+export function updateThreadTitle(
+  ownerId: string,
+  threadId: string,
+  title: string,
+): ThreadRecord | null {
+  const thread = threads.get(threadId);
+  if (!thread || thread.ownerId !== ownerId) return null;
 
   thread.title = formatTitle(title);
   thread.updatedAt = nowIso();
   userTitledThreads.add(threadId);
 
-  return thread;
+  return publicThread(thread);
 }
 
-export function ensureThread(threadId?: string): ThreadRecord {
+export function ensureThread(ownerId: string, threadId?: string): ThreadRecord {
   if (!threadId) {
-    return createThread();
+    return createThread(ownerId);
   }
 
-  const existing = getThread(threadId);
+  const existing = getThread(ownerId, threadId);
   if (existing) return existing;
-  return createThread();
+  return createThread(ownerId);
 }
 
 export function appendMessage(
+  ownerId: string,
   threadId: string,
   role: ChatRole,
   content: string,
 ): ThreadRecord {
-  const thread = getThread(threadId);
+  const thread = threads.get(threadId);
 
-  if (!thread) {
+  if (!thread || thread.ownerId !== ownerId) {
     throw new Error(`Thread ${threadId} not found`);
   }
 
@@ -100,5 +125,5 @@ export function appendMessage(
   thread.messageCount = thread.messages.length;
   thread.updatedAt = nowIso();
 
-  return thread;
+  return publicThread(thread);
 }

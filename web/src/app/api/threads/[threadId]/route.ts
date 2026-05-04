@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { getAuthUserId } from "@/lib/auth";
 import { getThread, updateThreadTitle } from "@/lib/thread-store";
 
 const updateSchema = z.object({
@@ -9,6 +10,10 @@ const updateSchema = z.object({
 
 export const runtime = "nodejs";
 
+function unauthorized() {
+  return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+}
+
 interface Params {
   params: Promise<{
     threadId: string;
@@ -16,8 +21,11 @@ interface Params {
 }
 
 export async function GET(_request: Request, context: Params) {
+  const userId = await getAuthUserId();
+  if (!userId) return unauthorized();
+
   const { threadId } = await context.params;
-  const thread = getThread(threadId);
+  const thread = getThread(userId, threadId);
 
   if (!thread) {
     return NextResponse.json({ error: "Thread not found" }, { status: 404 });
@@ -27,6 +35,9 @@ export async function GET(_request: Request, context: Params) {
 }
 
 export async function PATCH(request: Request, context: Params) {
+  const userId = await getAuthUserId();
+  if (!userId) return unauthorized();
+
   const { threadId } = await context.params;
 
   const body = await request
@@ -38,7 +49,7 @@ export async function PATCH(request: Request, context: Params) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const thread = updateThreadTitle(threadId, body.data.title);
+  const thread = updateThreadTitle(userId, threadId, body.data.title);
 
   if (!thread) {
     return NextResponse.json({ error: "Thread not found" }, { status: 404 });

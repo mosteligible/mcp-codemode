@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Bot,
+  LogOut,
   MessageCirclePlus,
   Moon,
   MoreVertical,
@@ -13,6 +14,7 @@ import {
   Sun,
   User,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 
 import type { ChatMessage, ThreadRecord, ThreadSummary } from "@/lib/types";
 
@@ -29,6 +31,10 @@ interface StatusPayload {
 }
 
 type Theme = "light" | "dark";
+
+interface ChatAppProps {
+  userName: string;
+}
 
 function isoNow(): string {
   return new Date().toISOString();
@@ -55,7 +61,7 @@ async function readError(response: Response): Promise<string> {
   return "Request failed";
 }
 
-export function ChatApp() {
+export function ChatApp({ userName }: ChatAppProps) {
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -426,6 +432,10 @@ export function ChatApp() {
             </div>
           </div>
           <div className="chat-header-actions">
+            <div className="account-pill" title={userName}>
+              <User size={14} />
+              <span>{userName}</span>
+            </div>
             <button
               className="theme-toggle"
               type="button"
@@ -435,6 +445,17 @@ export function ChatApp() {
               title={theme === "dark" ? "Light mode" : "Dark mode"}
             >
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <button
+              className="theme-toggle"
+              type="button"
+              aria-label="Sign out"
+              title="Sign out"
+              onClick={() => {
+                void signOut({ callbackUrl: "/auth/signin" });
+              }}
+            >
+              <LogOut size={16} />
             </button>
             <div className="activity-pill">
               <Activity size={14} />

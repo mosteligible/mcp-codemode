@@ -1,11 +1,17 @@
 import { NextResponse } from "next/server";
 
+import { getAuthUserId } from "@/lib/auth";
 import { getServerEnv } from "@/lib/env";
 import { listMcpTools } from "@/lib/mcp";
 
 export const runtime = "nodejs";
 
 export async function GET() {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
   try {
     const env = getServerEnv();
 

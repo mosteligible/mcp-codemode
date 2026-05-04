@@ -3,6 +3,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { getAuthUserId } from "@/lib/auth";
 import { buildMcpToolSet } from "@/lib/chat-tools";
 import { buildBoundedModelMessages } from "@/lib/conversation-history";
 import { getServerEnv } from "@/lib/env";
@@ -16,6 +17,11 @@ const requestSchema = z.object({
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  }
+
   let env;
   try {
     env = getServerEnv();
@@ -35,10 +41,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request payload." }, { status: 400 });
   }
 
-  const thread = ensureThread(payload.threadId);
-  appendMessage(thread.id, "user", payload.message);
+  const thread = ensureThread(userId, payload.threadId);
+  appendMessage(userId, thread.id, "user", payload.message);
 
-  const hydratedThread = getThread(thread.id);
+  const hydratedThread = getThread(userId, thread.id);
   if (!hydratedThread) {
     return NextResponse.json({ error: "Thread not found." }, { status: 404 });
   }
@@ -66,7 +72,7 @@ export async function POST(request: Request) {
     stopWhen: stepCountIs(5),
     onFinish: ({ text }) => {
       if (text.trim()) {
-        appendMessage(thread.id, "assistant", text);
+        appendMessage(userId, thread.id, "assistant", text);
       }
     },
   });
